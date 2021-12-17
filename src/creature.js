@@ -4,7 +4,6 @@ import { search } from './utility/pathfinding';
 import { Hex } from './utility/hex';
 import * as arrayUtils from './utility/arrayUtils';
 import { Drop } from './drops';
-import { Effect } from './effect';
 
 /**
  * Creature Class
@@ -15,7 +14,7 @@ export class Creature {
 	/* Attributes
 	 *
 	 * NOTE : attributes and variables starting with $ are jquery element
-	 * and jquery function can be called dirrectly from them.
+	 * and jquery function can be called directly from them.
 	 *
 	 * // Jquery attributes
 	 * $display :		Creature representation
