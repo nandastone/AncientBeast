@@ -1,9 +1,71 @@
-import * as $j from 'jquery';
+import $j from 'jquery';
 import { Ability } from './ability';
 import { search } from './utility/pathfinding';
 import { Hex } from './utility/hex';
 import * as arrayUtils from './utility/arrayUtils';
 import { Drop } from './drops';
+import Game from './game';
+import { Effect } from './effect';
+
+export enum MovementType {
+	Walk = 'walk',
+	Fly = 'flying',
+	Hover = 'hover',
+}
+
+// TODO: How to add abstract information about stat? i.e. stat is something that can be used in different places.
+export interface CreatureStats {
+	/**
+	 * Available "pool" or maximum health of the creature.
+	 *
+	 * Cannot fall below 1.
+	 */
+	health: number;
+
+	/**
+	 * Available "pool" or maximum endurance of the creature.
+	 *
+	 * Cannot fall below 1.
+	 */
+	endurance: number;
+
+	/**
+	 * Available "pool" or maximum energy of the creature.
+	 *
+	 * Cannot fall below 1.
+	 */
+	energy: number;
+
+	/**
+	 * Available "pool" or maximum movement of the creature. Cannot
+	 * fall below 1.
+	 */
+	movement: number;
+
+	regrowth: number;
+	meditation: number;
+	initiative: number;
+	offense: number;
+	defense: number;
+	pierce: number;
+	slash: number;
+	crush: number;
+	shock: number;
+	burn: number;
+	frost: number;
+	poison: number;
+	sonic: number;
+	mental: number;
+
+	// TODO: Should these states be moved somewhere else?
+	moveable: boolean;
+	fatigueImmunity: boolean;
+	frozen: boolean;
+	// Extra energy required for abilities
+	reqEnergy: number;
+}
+
+export type CreatureAlterations = Partial<Record<keyof CreatureStats, number | string | boolean>>;
 
 /**
  * Creature Class
@@ -11,6 +73,86 @@ import { Drop } from './drops';
  * Creature contains all creatures properties and attacks
  */
 export class Creature {
+	game: Game;
+	name: string;
+	id: number;
+	x: number;
+	y: number;
+	pos: { x: number; y: number };
+	size: number;
+	type: any;
+	level: number;
+	realm: any;
+	animation: any;
+	display: any;
+	drop: any;
+	_movementType: MovementType;
+	temp: any;
+	hexagons: any[];
+	team: any;
+	player: any;
+	dead: boolean;
+	killer: any;
+	hasWait: boolean;
+	travelDist: number;
+	effects: Effect[];
+	dropCollection: Drop[];
+	protectedFromFatigue: boolean;
+	turnsActive: number;
+	baseStats: CreatureStats;
+	stats: CreatureStats;
+
+	/**
+	 * Remaining health for the creature.
+	 *
+	 * If reduced to 0, the creature dies. Cannot exceed its maximum (stats.health).
+	 */
+	health: number;
+
+	/**
+	 * Remaining energy for the creature.
+	 *
+	 * Many creature abilities have an energy cost and if the creature has insufficient
+	 * energy it cannot use them. A creature regenerates energy equal to its stats.meditation
+	 * value at the start of its turn. Cannot exceed its maximum (stats.energy).
+	 */
+	energy: number;
+
+	/**
+	 * Remaining endurance for the creature.
+	 *
+	 * If reduced to 0, the creature is "Fatigued". Fatigued creatures do not restore
+	 * health through stats.regrowth, or energy through stats.meditation.
+	 *
+	 * When a creature takes damage it loses endurance equal to taken damage.
+	 */
+	endurance: number;
+
+	/**
+	 * Remaining movement points for a creature.
+	 *
+	 * A creature regenerates back to its maximum movement (stats.movement) at the
+	 * beginning of its turn.
+	 */
+	remainingMove: number;
+
+	dizzy: boolean;
+	abilities: Ability[];
+	grp: any;
+	sprite: any;
+	hintGrp: any;
+	healthIndicatorGroup: any;
+	healthIndicatorSprite: any;
+	healthIndicatorText: any;
+	fatigueText: string;
+	delayable: boolean;
+	delayed: boolean;
+	materializationSickness: boolean;
+	noActionPossible: boolean;
+	oldEnergy: number;
+	oldHealth: number;
+	undead: boolean;
+
 	/* Attributes
 	 *
 	 * NOTE : attributes and variables starting with $ are jquery element
@@ -47,11 +189,11 @@ export class Creature {
 	 * obj :			Object :	Object containing all creature stats
 	 *
 	 */
-	constructor(obj, game) {
+	constructor(obj) {
 		// Engine
-		this.game = game;
+		this.game = Game.getInstance();
 		this.name = obj.name;
-		this.id = game.creatureIdCounter++;
+		this.id = this.game.creatureIdCounter++;
 		this.x = obj.x - 0;
 		this.y = obj.y - 0;
 		this.pos = {
@@ -76,7 +218,7 @@ export class Creature {
 
 		// Game
 		this.team = obj.team; // = playerID (0,1,2,3)
-		this.player = game.players[obj.team];
+		this.player = this.game.players[obj.team];
 		this.dead = false;
 		this.killer = undefined;
 		this.hasWait = false;
@@ -117,29 +259,24 @@ export class Creature {
 		this.stats = {
 			...this.baseStats,
 
-			/**
-			 * Represents the available "pool" or maximum health of the creature.
-			 * `this.health` represents the current remaining health which cannot exceed
-			 * this value.
-			 */
 			health: this.baseStats.health,
 
 			/**
-			 * Represents the available "pool" or maximum energy of the creature.
+			 * Available "pool" or maximum energy of the creature.
 			 * `this.energy` represents the current remaining energy which cannot exceed
 			 * this value.
 			 */
 			energy: this.baseStats.energy,
 
 			/**
-			 * Represents the available "pool" or maximum endurance of the creature.
+			 * Available "pool" or maximum endurance of the creature.
 			 * `this.endurance` represents the current remaining endurance which cannot
 			 * exceed this value. It also cannot be lower than 0.
 			 */
 			endurance: this.baseStats.endurance,
 
 			/**
-			 * Represents the available "pool" or maximum movement of the creature.
+			 * Available "pool" or maximum movement of the creature.
 			 * `this.remainingMove` represents the current remaining movement which cannot
 			 * exceed this value.
 			 */
@@ -158,10 +295,10 @@ export class Creature {
 
 		// Abilities
 		this.abilities = [
-			new Ability(this, 0, game),
-			new Ability(this, 1, game),
-			new Ability(this, 2, game),
-			new Ability(this, 3, game),
+			new Ability(this, 0, this.game),
+			new Ability(this, 1, this.game),
+			new Ability(this, 2, this.game),
+			new Ability(this, 3, this.game),
 		];
 
 		this.updateHex();
@@ -186,7 +323,7 @@ export class Creature {
 		}
 
 		// Creature Container
-		this.grp = game.Phaser.add.group(game.grid.creatureGroup, 'creatureGrp_' + this.id);
+		this.grp = this.game.Phaser.add.group(this.game.grid.creatureGroup, 'creatureGrp_' + this.id);
 		this.grp.alpha = 0;
 		// Adding sprite
 		this.sprite = this.grp.create(0, 0, this.name + dp + '_cardboard');
@@ -205,12 +342,15 @@ export class Creature {
 		this.facePlayerDefault();
 
 		// Hint Group
-		this.hintGrp = game.Phaser.add.group(this.grp, 'creatureHintGrp_' + this.id);
+		this.hintGrp = this.game.Phaser.add.group(this.grp, 'creatureHintGrp_' + this.id);
 		this.hintGrp.x = 45 * this.size;
 		this.hintGrp.y = -this.sprite.texture.height + 5;
 
 		// Health indicator
-		this.healthIndicatorGroup = game.Phaser.add.group(this.grp, 'creatureHealthGrp_' + this.id);
+		this.healthIndicatorGroup = this.game.Phaser.add.group(
+			this.grp,
+			'creatureHealthGrp_' + this.id,
+		);
 		// Adding background sprite
 		this.healthIndicatorSprite = this.healthIndicatorGroup.create(
 			this.player.flipped ? 19 : 19 + 90 * (this.size - 1),
@@ -218,10 +358,10 @@ export class Creature {
 			'p' + this.team + '_health',
 		);
 		// Add text
-		this.healthIndicatorText = game.Phaser.add.text(
+		this.healthIndicatorText = this.game.Phaser.add.text(
 			this.player.flipped ? 45 : 45 + 90 * (this.size - 1),
 			63,
-			this.health,
+			`${this.health}`,
 			{
 				font: 'bold 15pt Play',
 				fill: '#fff',
@@ -239,7 +379,7 @@ export class Creature {
 		this.fatigueText = '';
 
 		// Adding Himself to creature arrays and queue
-		game.creatures[this.id] = this;
+		this.game.creatures[this.id] = this;
 
 		this.delayable = true;
 		this.delayed = false;
@@ -336,7 +476,7 @@ export class Creature {
 
 		let game = this.game;
 		let stats = this.stats;
-		let varReset = function () {
+		let varReset = () => {
 			this.game.onReset(this);
 			// Variables reset
 			this.updateAlteration();
@@ -371,7 +511,7 @@ export class Creature {
 			this.abilities.forEach((ability) => {
 				ability.reset();
 			});
-		}.bind(this);
+		};
 
 		// Frozen or dizzy effect
 		if (stats.frozen || this.dizzy) {
@@ -470,7 +610,7 @@ export class Creature {
 	 * launch move action query
 	 *
 	 */
-	queryMove(o) {
+	queryMove(o: any = {}) {
 		let game = this.game;
 
 		if (this.dead) {
@@ -947,7 +1087,7 @@ export class Creature {
 	 * return :	Array :		Array of adjacent hexagons
 	 *
 	 */
-	adjacentHexes(dist, clockwise) {
+	adjacentHexes(dist, clockwise = false) {
 		let game = this.game;
 
 		// TODO Review this algo to allow distance
@@ -1326,7 +1466,7 @@ export class Creature {
 		}; // Not killed
 	}
 
-	updateHealth(noAnimBar) {
+	updateHealth(noAnimBar = false) {
 		let game = this.game;
 
 		if (this == game.activeCreature && !noAnimBar) {
@@ -1378,7 +1518,7 @@ export class Creature {
 	 * effect :		Effect :	Effect object
 	 *
 	 */
-	addEffect(effect, specialString, specialHint, disableLog = false, disableHint = false) {
+	addEffect(effect, specialString?, specialHint?, disableLog = false, disableHint = false) {
 		let game = this.game;
 
 		if (!effect.stackable && this.findEffect(effect.name).length !== 0) {
@@ -1497,7 +1637,7 @@ export class Creature {
 							tooltipTransition,
 						)
 						.start();
-					grpHintElem.tweenAlpha.onComplete.add(function () {
+					grpHintElem.tweenAlpha.onComplete.add(() => {
 						this.destroy();
 					}, grpHintElem);
 				}
@@ -1838,17 +1978,15 @@ export class Creature {
 	}
 
 	/**
-	 * Get movement type for this creature
-	 * @return {string} "normal", "hover", or "flying"
+	 * Get movement type for this creature.
 	 */
-	movementType() {
-		let totalAbilities = this.abilities.length;
-
-		// If the creature has an ability that modifies movement type, use that,
-		// otherwise use the creature's base movement type
-		for (let i = 0; i < totalAbilities; i++) {
-			if ('movementType' in this.abilities[i]) {
-				return this.abilities[i].movementType();
+	movementType(): MovementType {
+		/* If the creature has an ability that modifies movement type, use that, otherwise
+		use the creature's base movement type. */
+		for (const ability of this.abilities) {
+			const abilityMovementType = ability.movementType();
+			if (abilityMovementType) {
+				return abilityMovementType;
 			}
 		}
 
@@ -1857,10 +1995,8 @@ export class Creature {
 
 	/**
 	 * Is this unit a Dark Priest?
-	 *
-	 * @returns {boolean}
 	 */
-	isDarkPriest() {
+	isDarkPriest(): boolean {
 		return this.type === '--';
 	}
 }

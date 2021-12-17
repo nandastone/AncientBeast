@@ -101,7 +101,7 @@ export class Player {
 			}
 		}
 
-		creature = new Creature(data, game);
+		creature = new Creature(data);
 		this.creatures.push(creature);
 		creature.summon(!this._summonCreaturesWithMaterializationSickness);
 		game.onCreatureSummon(creature);

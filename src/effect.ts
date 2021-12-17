@@ -1,13 +1,9 @@
-import { Creature } from './creature';
+import { Creature, CreatureAlterations } from './creature';
 import Game from './game';
 import { Hex } from './utility/hex';
 
-interface CreatureStats {}
-
-interface Alterations {}
-
 /**
- * Effect properties that can be overridden on construction.
+ * Override default Effect properties on construction.
  */
 export type EffectOptions = Partial<
 	Pick<
@@ -53,6 +49,9 @@ export class Effect {
 
 	/**
 	 * The object that possesses the effect.
+	 * While an effect can be applied to a Hex as part of a Trap, it doesn't actually
+	 * alter the Hex but is instead copied to, and activated on, the Trap target when
+	 * the trap activates.
 	 */
 	target: Creature | Hex;
 
@@ -82,7 +81,7 @@ export class Effect {
 	/**
 	 *
 	 */
-	alterations: Alterations;
+	alterations: CreatureAlterations;
 
 	/**
 	 * Trigger event that will automatically delete the effect.
@@ -147,7 +146,7 @@ export class Effect {
 	 * @param args
 	 */
 	animation(...args) {
-		this.activate(...args);
+		this.activate(args);
 	}
 
 	/**
@@ -164,7 +163,7 @@ export class Effect {
 			console.log('Effect ' + this.name + ' triggered');
 		}
 
-		// TODO: what is this?
+		// Transfer an Effect from another Creature or Hex.
 		if (arg instanceof Creature) {
 			arg.addEffect(this);
 		}
@@ -173,30 +172,37 @@ export class Effect {
 	}
 
 	/**
+	 * Intended to be overridden during construction.
 	 *
 	 * @param arg
-	 * @returns
+	 * @returns {boolean}
 	 */
 	requireFn(arg: any) {
 		return true;
 	}
 
 	/**
+	 * Intended to be overridden during construction.
 	 *
 	 * @param arg
 	 */
 	effectFn(arg: any) {
-		throw new Error('Method not implemented.');
+		// No-op method.
 	}
 
 	/**
+	 * Remove an effect from a Creature.
 	 *
+	 * Technically this code path could be called Hex effects applied via a Trap.
+	 * However, this doesn't happen because Trap effects don't have a lifetime, so
+	 * never end up being automatically deleted. Instead they are generally cleaned
+	 * up via `effectFn()` which is the Effect after being transferred to a Creature.
 	 */
 	deleteEffect() {
-		// deleteEffect() is only called on Creature types by the game. How best to represent this?
-		// One option would be to check in the function and return early.
-		// Another option is to extend the Effect class with HexEffect/CreatureEffect.
-		// Another option would be to call this for Hex and update the code to work.
+		if (this.target instanceof Hex) {
+			console.warn('Attempting to deleteEffect() on unsupported target.');
+			return;
+		}
 
 		let i = this.target.effects.indexOf(this);
 
@@ -207,5 +213,3 @@ export class Effect {
 		console.log('Effect ' + this.name + ' deleted');
 	}
 }
-
-const test = new Effect('test', new Creature(), new Creature());
