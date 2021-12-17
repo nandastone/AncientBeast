@@ -3,7 +3,7 @@ import { Ability } from './ability';
 import { search } from './utility/pathfinding';
 import { Hex } from './utility/hex';
 import * as arrayUtils from './utility/arrayUtils';
-import { Drop } from './drops';
+import { Drop } from './drop';
 import Game from './game';
 import { Effect } from './effect';
 
@@ -1394,7 +1394,7 @@ export class Creature {
 			this.hint(`${nbrDisplayed}`, `damage d${dmgAmount}`);
 
 			if (!damage.noLog) {
-				game.log('%CreatureName' + this.id + '% is hit : ' + nbrDisplayed + ' health');
+				game.log(`%CreatureName${this.id}% is hit : ${nbrDisplayed} health`);
 			}
 
 			// If Health is empty
@@ -1747,7 +1747,7 @@ export class Creature {
 
 				// Usual Buff/Debuff
 				if (typeof value == 'number') {
-					this.stats[key] += value;
+					this.stats[key] = value;
 				}
 
 				// Boolean Buff/Debuff
@@ -1793,7 +1793,7 @@ export class Creature {
 			/* All properties aside from `name` are assumed to be alterations to the creature's
 			statistics. */
 			const { name, ...alterations } = this.drop;
-			new Drop(name, alterations, offsetX, this.y, game);
+			new Drop(name, alterations, offsetX, this.y);
 		}
 
 		if (!game.firstKill && !isDeny) {

@@ -1135,7 +1135,7 @@ export default class Game {
 					// Alert
 					this.UI.btnToggleDash.changeState('glowing');
 					this.activeCreature.hint(
-						Math.ceil(this.turnTimePool - (date - p.startTime) / 1000),
+						`${Math.ceil(this.turnTimePool - (date - p.startTime) / 1000)}`,
 						msgStyle,
 					);
 				}
@@ -1150,7 +1150,7 @@ export default class Game {
 					// Alert
 					this.UI.btnToggleDash.changeState('glowing');
 					this.activeCreature.hint(
-						Math.ceil(this.turnTimePool - (date - p.startTime) / 1000),
+						`${Math.ceil(this.turnTimePool - (date - p.startTime) / 1000)}`,
 						msgStyle,
 					);
 				}
@@ -1170,7 +1170,7 @@ export default class Game {
 					// Alert
 					this.UI.btnToggleDash.changeState('glowing');
 					this.activeCreature.hint(
-						Math.ceil(this.turnTimePool - (date - p.startTime) / 1000),
+						`${Math.ceil(this.turnTimePool - (date - p.startTime) / 1000)}`,
 						msgStyle,
 					);
 				}
@@ -1371,7 +1371,7 @@ export default class Game {
 		this.triggerEffect('onEndPhase', [creature, creature]);
 	}
 
-	onStartOfRound(creature, callback?) {
+	onStartOfRound() {
 		this.triggerDeleteEffect('onStartOfRound', 'all');
 	}
 

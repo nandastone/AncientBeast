@@ -1,3 +1,7 @@
+import { CreatureAlterations } from './creature';
+import Game from './game';
+import { Hex } from './utility/hex';
+
 /**
  * Drops are a type of creature "buff" collected from a game board hex rather than
  * being applied by an ability.
@@ -19,10 +23,20 @@
  * - Drops are essentially permanent although this may change in the future.
  */
 export class Drop {
-	constructor(name, alterations, x, y, game) {
+	name: string;
+	game: Game;
+	id: number;
+	x: number;
+	y: number;
+	pos: { x: number; y: number };
+	alterations: CreatureAlterations;
+	hex: Hex;
+	display: any;
+
+	constructor(name, alterations, x, y) {
 		this.name = name;
-		this.game = game;
-		this.id = game.dropId++;
+		this.game = Game.getInstance();
+		this.id = this.game.dropId++;
 		this.x = x;
 		this.y = y;
 		this.pos = {
@@ -30,11 +44,11 @@ export class Drop {
 			y: y,
 		};
 		this.alterations = alterations;
-		this.hex = game.grid.hexes[this.y][this.x];
+		this.hex = this.game.grid.hexes[this.y][this.x];
 
 		this.hex.drop = this;
 
-		this.display = game.grid.dropGroup.create(
+		this.display = this.game.grid.dropGroup.create(
 			this.hex.displayPos.x + 54,
 			this.hex.displayPos.y + 15,
 			'drop_' + this.name,
@@ -42,7 +56,7 @@ export class Drop {
 		this.display.alpha = 0;
 		this.display.anchor.setTo(0.5, 0.5);
 		this.display.scale.setTo(1.5, 1.5);
-		game.Phaser.add
+		this.game.Phaser.add
 			.tween(this.display)
 			.to(
 				{
