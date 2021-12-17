@@ -47,7 +47,7 @@ export default (G) => {
 			//	activate() :
 			activate: function () {
 				let creature = this.creature;
-				let damage = new Damage(creature, { sonic: 30 }, this._targets.length, [], G);
+				let damage = new Damage(creature, { sonic: 30 }, this._targets.length, []);
 				let hits = new Set();
 
 				this._targets.forEach((target) => {
@@ -124,7 +124,6 @@ export default (G) => {
 					ability.damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 
 				let dmg = target.takeDamage(damage);
@@ -145,7 +144,6 @@ export default (G) => {
 									regrowth: Math.round(dmg.damages.total / 4),
 								},
 							}, //Optional arguments
-							G,
 						),
 					);
 				}
@@ -227,7 +225,6 @@ export default (G) => {
 								offense: 25,
 							},
 						}, // Optional arguments
-						G,
 					),
 				);
 			},
@@ -311,8 +308,8 @@ export default (G) => {
 
 				target.heal(transferAmount, false, false);
 
-				/* Damage Golden Wyrm using `.heal()` instead of `.takeDamage()` to apply 
-				raw damage that bypasses dodge, shielded, etc and does not trigger further 
+				/* Damage Golden Wyrm using `.heal()` instead of `.takeDamage()` to apply
+				raw damage that bypasses dodge, shielded, etc and does not trigger further
 				effects. */
 				this.creature.heal(-transferAmount, false, false);
 
@@ -322,18 +319,11 @@ export default (G) => {
 				);
 
 				if (this.isUpgraded()) {
-					const regrowthBuffEffect = new Effect(
-						this.title,
-						this.creature,
-						this.creature,
-						'',
-						{
-							alterations: {
-								regrowth: 10,
-							},
+					const regrowthBuffEffect = new Effect(this.title, this.creature, this.creature, '', {
+						alterations: {
+							regrowth: 10,
 						},
-						G,
-					);
+					});
 
 					this.creature.addEffect(
 						regrowthBuffEffect,

@@ -244,7 +244,6 @@ export default (G) => {
 					damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 				target.takeDamage(damage);
 			},
@@ -441,7 +440,6 @@ export default (G) => {
 						dmg, // Damage Type
 						1, // Area
 						[],
-						G,
 					);
 					let damageResult = target.takeDamage(damage);
 

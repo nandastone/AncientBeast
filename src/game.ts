@@ -1,4 +1,4 @@
-import * as $j from 'jquery';
+import $j from 'jquery';
 import { Animations } from './animations';
 import { CreatureQueue } from './creature_queue';
 import { GameLog } from './utility/gamelog';
@@ -10,13 +10,16 @@ import { getUrl } from './assetLoader';
 import { Player } from './player';
 import { UI } from './ui/interface';
 import { Creature } from './creature';
+import { Effect } from './effect';
 import dataJson from './data/units.json';
 import 'pixi';
 import 'p2';
-import Phaser, { Signal } from 'phaser';
+import Phaser, { Signal } from 'phaser-ce';
 import MatchI from './multiplayer/match';
 import Gameplay from './multiplayer/gameplay';
 import { sleep } from './utility/time';
+
+// type JQuery = ReturnType<typeof $j>;
 
 /* Game Class
  *
@@ -29,6 +32,124 @@ import { sleep } from './utility/time';
  */
 
 export default class Game {
+	private static instance: Game;
+
+	version: any;
+	abilities: any[];
+	players: any[];
+	creatures: Creature[];
+	effects: Effect[];
+	activeCreature: Creature;
+	matchid: any;
+	playersReady: boolean;
+	preventSetup: boolean;
+	animations: Animations;
+	queue: CreatureQueue;
+	creatureIdCounter: number;
+	creatureData: any[];
+	pause: boolean;
+	gameState: string;
+	pauseTime: number;
+	minimumTurnBeforeFleeing: number;
+	availableCreatures: any[];
+	animationQueue: any[];
+	checkTimeFrequency: number;
+	gamelog: GameLog;
+	configData: Record<string, unknown>;
+	match: MatchI;
+	gameplay: Gameplay;
+	session: any;
+	client: any;
+	connect: any;
+	debugMode: boolean;
+	multiplayer: boolean;
+	matchInitialized: boolean;
+	realms: string[];
+	availableMusic: any[];
+	soundEffects: string[];
+	inputMethod: string;
+	firstKill: boolean;
+	freezedInput: boolean;
+	turnThrottle: boolean;
+	turn: number;
+	Phaser: Phaser.Game;
+	msg: {
+		abilities: {
+			noTarget: string;
+			noPlasma: string;
+			noPsy: string;
+			alreadyUsed: string;
+			tooMuch: string;
+			notEnough: string;
+			notMoveable: string;
+			passiveCycle: string;
+			passiveUnavailable: string;
+		};
+		ui: {
+			dash: {
+				materializeOverload: string;
+				selectUnit: string;
+				lowPlasma: string;
+				// plasmaCost :    String :    plasma cost of the unit to materialize
+				materializeUnit: (plasmaCost: any) => string;
+				materializeUsed: string;
+				heavyDev: string;
+			};
+		};
+	};
+	triggers: {
+		onStepIn: RegExp;
+		onStepOut: RegExp;
+		onReset: RegExp;
+		onStartPhase: RegExp;
+		onEndPhase: RegExp;
+		onMovement: RegExp;
+		onUnderAttack: RegExp;
+		onDamage: RegExp;
+		onHeal: RegExp;
+		onAttack: RegExp;
+		onCreatureMove: RegExp;
+		onCreatureDeath: RegExp;
+		onCreatureSummon: RegExp;
+		onStepIn_other: RegExp;
+		onStepOut_other: RegExp;
+		onReset_other: RegExp;
+		onStartPhase_other: RegExp;
+		onEndPhase_other: RegExp;
+		onMovement_other: RegExp;
+		onAttack_other: RegExp;
+		onDamage_other: RegExp;
+		onHeal_other: RegExp;
+		onUnderAttack_other: RegExp;
+		onCreatureMove_other: RegExp;
+		onCreatureDeath_other: RegExp;
+		onCreatureSummon_other: RegExp;
+		onEffectAttach: RegExp;
+		onEffectAttach_other: RegExp;
+		onStartOfRound: RegExp;
+		onQuery: RegExp;
+		oncePerDamageChain: RegExp;
+	};
+	signals: any;
+	soundsys: any;
+	musicPlayer: MusicPlayer;
+	soundLoaded: Record<string, unknown>;
+	background_image: string;
+	UI: UI;
+	trapId: number;
+	effectId: number;
+	dropId: number;
+	grid: HexGrid;
+	startMatchTime: Date;
+	$combatFrame: JQuery<HTMLElement>;
+	timeInterval: number;
+	pauseStartTime: number;
+	timePool: number;
+	turnTimePool: number;
+	endGameSound: any;
+	windowResizeTimeout: number;
+	playerMode: number;
+
 	/* Attributes
 	 *
 	 * NOTE : attributes and variables starting with $ are jQuery elements
@@ -55,16 +176,14 @@ export default class Game {
 	 * creatureData :		Array :		Array containing all data for the creatures
 	 *
 	 */
-	constructor(version) {
+	private constructor(version) {
 		this.version = version || 'dev';
 		this.abilities = [];
 		this.players = [];
 		this.creatures = [];
 		this.effects = [];
-		this.activeCreature = {
-			id: 0,
-		};
-		this.matchid = null;
+		this.activeCreature = undefined;
+		this.matchid = undefined;
 		this.playersReady = false;
 		this.preventSetup = false;
 		this.animations = new Animations(this);
@@ -80,11 +199,11 @@ export default class Game {
 		this.checkTimeFrequency = 1000;
 		this.gamelog = new GameLog(null, this);
 		this.configData = {};
-		this.match = {};
-		this.gameplay = {};
-		this.session = null;
-		this.client = null;
-		this.connect = null;
+		this.match = undefined;
+		this.gameplay = undefined;
+		this.session = undefined;
+		this.client = undefined;
+		this.connect = undefined;
 		this.debugMode = false;
 		this.multiplayer = false;
 		this.matchInitialized = false;
@@ -185,6 +304,14 @@ export default class Game {
 		this.signals = this.setupSignalChannels(signalChannels);
 	}
 
+	static getInstance(): Game {
+		if (!Game.instance) {
+			Game.instance = new Game('0.4');
+		}
+
+		return Game.instance;
+	}
+
 	dataLoaded(data) {
 		let dpcolor = ['blue', 'orange', 'green', 'red'];
 
@@ -245,7 +372,7 @@ export default class Game {
 	 * Load all required game files
 	 */
 
-	loadGame(setupOpt, matchInitialized, matchid) {
+	loadGame(setupOpt, matchInitialized = false, matchid?) {
 		// Need to remove keydown listener before new game start
 		// to prevent memory leak and mixing hotkeys between start screen and game
 		$j(document).off('keydown');
@@ -345,7 +472,7 @@ export default class Game {
 		$j('#barLoader .progress').css('width', progressWidth);
 
 		if (progress == 100) {
-			setTimeout(() => {
+			window.setTimeout(() => {
 				this.gameState = 'loaded';
 				$j('#combatwrapper').show();
 
@@ -384,7 +511,7 @@ export default class Game {
 		this.preventSetup = false;
 		// If loaded, call maybeSetup with a tiny delay to prevent rendering issues.
 		if (this.gameState == 'loaded') {
-			setTimeout(() => {
+			window.setTimeout(() => {
 				this.maybeSetup();
 			}, 100);
 		}
@@ -421,7 +548,7 @@ export default class Game {
 		this.Phaser.stage.disableVisibilityChange = true;
 
 		if (!this.Phaser.device.desktop) {
-			this.Phaser.stage.forcePortrait = true;
+			this.Phaser.scale.forcePortrait = true;
 		}
 
 		bg = this.Phaser.add.sprite(0, 0, 'background');
@@ -527,7 +654,7 @@ export default class Game {
 		this.log('Welcome to Ancient Beast pre-Alpha');
 		this.log('Setting up a ' + playerMode + ' player match');
 
-		this.timeInterval = setInterval(() => {
+		this.timeInterval = window.setInterval(() => {
 			this.checkTime();
 		}, this.checkTimeFrequency);
 
@@ -536,16 +663,17 @@ export default class Game {
 		this.resizeCombatFrame(); // Resize while the game is starting
 		this.UI.resizeDash();
 
-		var resizeGame = function () {
+		const resizeGame = () => {
 			clearTimeout(this.windowResizeTimeout);
-			this.windowResizeTimeout = setTimeout(() => {
+
+			this.windowResizeTimeout = window.setTimeout(() => {
 				this.resizeCombatFrame();
 				this.UI.resizeDash();
 			}, 100);
-		}.bind(this);
+		};
 
 		// Handle resize events
-		$j(window).resize(() => {
+		$j(window).on('resize', () => {
 			// Throttle down to 1 event every 100ms of inactivity
 			resizeGame();
 		});
@@ -555,7 +683,7 @@ export default class Game {
 			// TODO: Remove the need for a timeout here by having a proper
 			// "game is ready to play" event that can trigger log replays if
 			// they are queued. -- ktiedt
-			setTimeout(() => {
+			window.setTimeout(() => {
 				this.gamelog.play.apply(this.gamelog);
 			}, 1000);
 		}
@@ -703,8 +831,8 @@ export default class Game {
 
 		this.stopTimer();
 		// Delay
-		setTimeout(() => {
-			let interval = setInterval(() => {
+		window.setTimeout(() => {
+			let interval = window.setInterval(() => {
 				clearInterval(interval);
 
 				let differentPlayer = false;
@@ -767,7 +895,7 @@ export default class Game {
 		}, 300);
 	}
 
-	updateQueueDisplay(excludeActiveCreature) {
+	updateQueueDisplay(excludeActiveCreature = false) {
 		if (this.UI) {
 			this.UI.updateQueueDisplay(excludeActiveCreature);
 		}
@@ -779,7 +907,7 @@ export default class Game {
 	 *
 	 * Display obj in the console log and in the game log
 	 */
-	log(obj, htmlclass, ifNoTimestamp = false) {
+	log(obj, htmlclass = '', ifNoTimestamp = false) {
 		// Formating
 		let stringConsole = obj,
 			stringLog = obj,
@@ -810,13 +938,13 @@ export default class Game {
 		if (this.freezedInput && this.pause) {
 			this.pause = false;
 			this.freezedInput = false;
-			this.pauseTime += new Date() - this.pauseStartTime;
+			this.pauseTime += new Date().getTime() - this.pauseStartTime;
 			$j('#pause').remove();
 			this.startTimer();
 		} else if (!this.pause && !this.freezedInput) {
 			this.pause = true;
 			this.freezedInput = true;
-			this.pauseStartTime = new Date();
+			this.pauseStartTime = new Date().getTime();
 			this.stopTimer();
 			$j('#ui').append('<div id="pause">Pause</div>');
 		}
@@ -855,7 +983,7 @@ export default class Game {
 			this.activeCreature.hint(o.tooltip, 'msg_effects');
 		}
 
-		setTimeout(() => {
+		window.setTimeout(() => {
 			this.turnThrottle = false;
 			this.UI.btnSkipTurn.changeState('normal');
 
@@ -873,7 +1001,7 @@ export default class Game {
 		this.grid.clearHexViewAlterations();
 		this.activeCreature.facePlayerDefault();
 
-		let skipTurn = new Date();
+		let skipTurn = new Date().getTime();
 		let p = this.activeCreature.player;
 		p.totalTimePool = p.totalTimePool - (skipTurn - p.startTime);
 		this.pauseTime = 0;
@@ -917,7 +1045,7 @@ export default class Game {
 		this.UI.btnSkipTurn.changeState('disabled');
 		this.UI.btnDelay.changeState('disabled');
 
-		setTimeout(() => {
+		window.setTimeout(() => {
 			this.turnThrottle = false;
 			this.UI.btnSkipTurn.changeState('normal');
 			if (
@@ -931,7 +1059,7 @@ export default class Game {
 			o.callback.apply();
 		}, 1000);
 
-		let skipTurn = new Date(),
+		let skipTurn = new Date().getTime(),
 			p = this.activeCreature.player;
 
 		p.totalTimePool = p.totalTimePool - (skipTurn - p.startTime);
@@ -941,10 +1069,10 @@ export default class Game {
 
 	startTimer() {
 		clearInterval(this.timeInterval);
-		this.activeCreature.player.startTime = new Date() - this.pauseTime;
+		this.activeCreature.player.startTime = new Date().getTime() - this.pauseTime;
 		this.checkTime();
 
-		this.timeInterval = setInterval(() => {
+		this.timeInterval = window.setInterval(() => {
 			this.checkTime();
 		}, this.checkTimeFrequency);
 	}
@@ -956,7 +1084,7 @@ export default class Game {
 	/* checkTime()
 	 */
 	checkTime() {
-		let date = new Date() - this.pauseTime,
+		let date = new Date().getTime() - this.pauseTime,
 			p = this.activeCreature.player,
 			alertTime = 5, // In seconds
 			msgStyle = 'msg_effects',
@@ -991,7 +1119,7 @@ export default class Game {
 					p.deactivate(); // Only if timepool is empty
 				}
 
-				this.skipTurn();
+				this.skipTurn({});
 				return;
 			} else {
 				if ((p.totalTimePool - (date - p.startTime)) / 1000 < alertTime) {
@@ -1010,7 +1138,7 @@ export default class Game {
 		} else if (this.turnTimePool > 0) {
 			// Turn time is not infinite
 			if ((date - p.startTime) / 1000 > this.turnTimePool) {
-				this.skipTurn();
+				this.skipTurn({});
 				return;
 			} else {
 				if (this.turnTimePool - (date - p.startTime) / 1000 < alertTime && this.UI.dashopen) {
@@ -1026,7 +1154,7 @@ export default class Game {
 			// Timepool is not infinite
 			if (p.totalTimePool - (date - p.startTime) < 0) {
 				p.deactivate();
-				this.skipTurn();
+				this.skipTurn({});
 				return;
 			} else {
 				if (p.totalTimePool - (date - p.startTime) < alertTime) {
@@ -1069,7 +1197,7 @@ export default class Game {
 		}
 	}
 
-	triggerAbility(trigger, arg, retValue) {
+	triggerAbility(trigger, arg, retValue?) {
 		let [triggeredCreature, required] = arg;
 
 		// For triggered creature
@@ -1093,7 +1221,7 @@ export default class Game {
 
 			creature.abilities.forEach((ability) => {
 				if (this.triggers[trigger + '_other'].test(ability.getTrigger())) {
-					if (ability.require(required)) {
+					if (ability.require && ability.require(required)) {
 						retValue = ability.animation(required, triggeredCreature);
 					}
 				}
@@ -1103,7 +1231,7 @@ export default class Game {
 		return retValue;
 	}
 
-	triggerEffect(trigger, arg, retValue) {
+	triggerEffect(trigger, arg, retValue?) {
 		let [triggeredCreature, required] = arg;
 
 		// For triggered creature
@@ -1275,7 +1403,7 @@ export default class Game {
 			.forEach((effect) => {
 				effect.deleteEffect();
 				// Update UI in case effect changes it
-				if (effect.target) {
+				if (effect.target && effect.target instanceof Creature) {
 					effect.target.updateHealth();
 				}
 			});
@@ -1389,10 +1517,6 @@ export default class Game {
 					creature.abilities[j].triggeredThisChain = false;
 				}
 			}
-		}
-
-		for (i = 0; i < totalEffects; i++) {
-			this.effects[i].triggeredThisChain = false;
 		}
 	}
 
@@ -1520,13 +1644,11 @@ export default class Game {
 	resetGame() {
 		this.endGameSound.stop();
 		this.UI.showGameSetup();
-		this.stopTimer(this.timeInterval);
+		this.stopTimer();
 		this.players = [];
 		this.creatures = [];
 		this.effects = [];
-		this.activeCreature = {
-			id: 0,
-		};
+		this.activeCreature = undefined;
 		this.matchid = null;
 		this.playersReady = false;
 		this.preventSetup = false;
@@ -1539,8 +1661,8 @@ export default class Game {
 		this.availableCreatures = [];
 		this.animationQueue = [];
 		this.configData = {};
-		this.match = {};
-		this.gameplay = {};
+		this.match = undefined;
+		this.gameplay = undefined;
 		this.matchInitialized = false;
 		this.firstKill = false;
 		this.freezedInput = false;

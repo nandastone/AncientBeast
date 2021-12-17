@@ -84,18 +84,11 @@ export default (G) => {
 
 				// If upgraded, hits will debuff target with -1 offense
 				if (this.isUpgraded()) {
-					let effect = new Effect(
-						'Slicing Pounce',
-						ability.creature,
-						target,
-						'onDamage',
-						{
-							alterations: {
-								offense: -1,
-							},
+					let effect = new Effect('Slicing Pounce', ability.creature, target, 'onDamage', {
+						alterations: {
+							offense: -1,
 						},
-						G,
-					);
+					});
 					target.addEffect(effect);
 					G.log('%CreatureName' + target.id + "%'s offense is lowered by 1");
 				}
@@ -105,7 +98,6 @@ export default (G) => {
 					ability.damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 
 				target.takeDamage(damage);
@@ -354,38 +346,29 @@ export default (G) => {
 					damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 
 				let result = target.takeDamage(damage);
 
 				if (result.damageObj.status !== 'Shielded') {
 					// Add poison damage debuff
-					let effect = new Effect(
-						this.title,
-						this.creature,
-						target,
-						'onStartPhase',
-						{
-							stackable: false,
-							effectFn: function (eff, creature) {
-								G.log('%CreatureName' + creature.id + '% is affected by ' + ability.title);
-								creature.takeDamage(
-									new Damage(
-										eff.owner,
-										{
-											poison: ability.damages.poison,
-										},
-										1,
-										[],
-										G,
-									),
-									{ isFromTrap: true },
-								);
-							},
+					let effect = new Effect(this.title, this.creature, target, 'onStartPhase', {
+						stackable: false,
+						effectFn: function (eff, creature) {
+							G.log('%CreatureName' + creature.id + '% is affected by ' + ability.title);
+							creature.takeDamage(
+								new Damage(
+									eff.owner,
+									{
+										poison: ability.damages.poison,
+									},
+									1,
+									[],
+								),
+								{ isFromTrap: true },
+							);
 						},
-						G,
-					);
+					});
 
 					target.replaceEffect(effect);
 

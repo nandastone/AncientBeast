@@ -50,7 +50,6 @@ export default (G) => {
 							stackable: false,
 							noLog: noLog,
 						},
-						G,
 					),
 				);
 				if (!noLog) {
@@ -139,7 +138,7 @@ export default (G) => {
 					if (isTeam(this.creature, targets[i].target, Team.enemy)) {
 						damages = enemyDamages;
 					}
-					let dmg = new Damage(this.creature, damages, targets[i].hexesHit, [], G);
+					let dmg = new Damage(this.creature, damages, targets[i].hexesHit, []);
 					kills += targets[i].target.takeDamage(dmg).kill + 0;
 				}
 				if (kills > 1) {
@@ -191,35 +190,28 @@ export default (G) => {
 				let ability = this;
 
 				let makeSeal = function () {
-					let effect = new Effect(
-						'Royal Seal',
-						ability.creature,
-						hex,
-						'onStepIn',
-						{
-							// Gumbles immune
-							requireFn: function () {
-								let crea = this.trap.hex.creature;
-								return crea && crea.type !== this.owner.type;
-							},
-							effectFn: function (_, crea) {
-								if (this.trap.turnLifetime === 0) {
-									crea.remainingMove = 0;
-									// Destroy the trap on the trapped creature's turn
-									this.trap.turnLifetime = 1;
-									this.trap.ownerCreature = crea;
-								}
-							},
-							// Immobilize target so that they can't move and no
-							// abilities/effects can move them
-							alterations: {
-								moveable: false,
-							},
-							deleteTrigger: 'onStartPhase',
-							turnLifetime: 1,
+					let effect = new Effect('Royal Seal', ability.creature, hex, 'onStepIn', {
+						// Gumbles immune
+						requireFn: function () {
+							let crea = this.trap.hex.creature;
+							return crea && crea.type !== this.owner.type;
 						},
-						G,
-					);
+						effectFn: function (_, crea) {
+							if (this.trap.turnLifetime === 0) {
+								crea.remainingMove = 0;
+								// Destroy the trap on the trapped creature's turn
+								this.trap.turnLifetime = 1;
+								this.trap.ownerCreature = crea;
+							}
+						},
+						// Immobilize target so that they can't move and no
+						// abilities/effects can move them
+						alterations: {
+							moveable: false,
+						},
+						deleteTrigger: 'onStartPhase',
+						turnLifetime: 1,
+					});
 
 					let trap = hex.createTrap('royal-seal', [effect], ability.creature.player, {
 						ownerCreature: ability.creature,
@@ -350,7 +342,6 @@ export default (G) => {
 					d, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 
 				let result = target.takeDamage(damage, {

@@ -48,7 +48,6 @@ export default (G) => {
 					this.damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 				target.takeDamage(damage);
 
@@ -106,7 +105,6 @@ export default (G) => {
 					ability.damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 				target.takeDamage(damage);
 
@@ -297,7 +295,6 @@ export default (G) => {
 						ability.damages, //Damage Type
 						1, //Area
 						[], //Effects
-						G,
 					);
 					target.takeDamage(damage);
 				}
@@ -376,7 +373,6 @@ export default (G) => {
 					damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 				target.takeDamage(damage);
 			},

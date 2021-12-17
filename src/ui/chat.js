@@ -85,7 +85,7 @@ export class Chat {
 		}
 	}
 
-	addMsg(msg, htmlClass, ifNoTimestamp = false) {
+	addMsg(msg, htmlClass = '', ifNoTimestamp = false) {
 		let messagesNo = this.messages.length;
 		let currentTime = ifNoTimestamp ? null : this.getCurrentTime();
 

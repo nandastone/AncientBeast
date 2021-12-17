@@ -84,7 +84,6 @@ export default (G) => {
 												endurance: -5,
 											},
 										},
-										G,
 									),
 								);
 								// Note: effect activate by default adds the effect on the target,
@@ -167,7 +166,6 @@ export default (G) => {
 					d, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 
 				target.takeDamage(damage);

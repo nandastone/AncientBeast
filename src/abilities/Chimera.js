@@ -93,7 +93,6 @@ export default (G) => {
 					ability.damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 				target.takeDamage(damage);
 				if (this.isUpgraded()) {
@@ -160,7 +159,6 @@ export default (G) => {
 					ability.damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 				let result = target.takeDamage(damage);
 
@@ -188,7 +186,6 @@ export default (G) => {
 						}, // Damage Type
 						1, // Area
 						[], // Effects
-						G,
 					);
 					result = target.takeDamage(damage);
 				}
@@ -266,7 +263,6 @@ export default (G) => {
 						}, // Damage Type
 						1, // Area
 						[], // Effects
-						G,
 					);
 					let result = _target.takeDamage(damage);
 					// Knock the target back if they are still alive and there is enough range

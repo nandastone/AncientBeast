@@ -1,4 +1,5 @@
 import * as $j from 'jquery';
+import Game from './game';
 
 /* Damage Class
  *
@@ -10,10 +11,9 @@ export class Damage {
 	 * @param {Object} damages Object containing the damage by type {frost : 5} for example
 	 * @param {number} area Number of hexagons being hit
 	 * @param {array} effects Contains Effect object to apply to the target
-	 * @param {Object} game Game object
 	 */
-	constructor(attacker, damages, area, effects, game) {
-		this.game = game;
+	constructor(attacker, damages, area, effects) {
+		this.game = Game.getInstance();
 		this.attacker = attacker;
 		this.damages = damages;
 		this.status = '';

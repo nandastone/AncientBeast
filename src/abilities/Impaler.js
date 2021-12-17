@@ -115,7 +115,6 @@ export default (G) => {
 					finalDmg, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 				let result = target.takeDamage(damage);
 				// Recharge movement if any damage dealt
@@ -181,56 +180,42 @@ export default (G) => {
 
 				// Destroy trap if it wasn't triggered and target is dead
 				target.addEffect(
-					new Effect(
-						ability.title,
-						target,
-						target,
-						'onUnderAttack',
-						{
-							effectFn: (effect, damage) => {
-								let dmg = damage.applyDamage();
-								if (dmg.total >= target.health) {
-									target.hexagons.forEach(function (hex) {
-										hex.destroyTrap();
-									});
-								}
-							},
+					new Effect(ability.title, target, target, 'onUnderAttack', {
+						effectFn: (effect, damage) => {
+							let dmg = damage.applyDamage();
+							if (dmg.total >= target.health) {
+								target.hexagons.forEach(function (hex) {
+									hex.destroyTrap();
+								});
+							}
 						},
-						G,
-					),
+					}),
 				);
 
 				// Add a trap to every hex of the target
-				let effect = new Effect(
-					ability.title,
-					ability.creature,
-					this,
-					'onStepOut',
-					{
-						effectFn: (eff) => {
-							const waitForMovementComplete = (message, payload) => {
-								if (message === 'movementComplete' && payload.creature.id === eff.target.id) {
-									this.game.signals.creature.remove(waitForMovementComplete);
+				let effect = new Effect(ability.title, ability.creature, this, 'onStepOut', {
+					effectFn: (eff) => {
+						const waitForMovementComplete = (message, payload) => {
+							if (message === 'movementComplete' && payload.creature.id === eff.target.id) {
+								this.game.signals.creature.remove(waitForMovementComplete);
 
-									G.log('%CreatureName' + eff.target.id + '% is hit by ' + eff.name);
-									eff.target.takeDamage(new Damage(eff.owner, damages, 1, [], G), {
-										isFromTrap: true,
-									});
-									// Hack: manually destroy traps so we don't activate multiple traps
-									// and see multiple logs etc.
-									target.hexagons.forEach(function (hex) {
-										hex.destroyTrap();
-									});
-									eff.deleteEffect();
-								}
-							};
+								G.log('%CreatureName' + eff.target.id + '% is hit by ' + eff.name);
+								eff.target.takeDamage(new Damage(eff.owner, damages, 1, []), {
+									isFromTrap: true,
+								});
+								// Hack: manually destroy traps so we don't activate multiple traps
+								// and see multiple logs etc.
+								target.hexagons.forEach(function (hex) {
+									hex.destroyTrap();
+								});
+								eff.deleteEffect();
+							}
+						};
 
-							// Wait until movement is completely finished before processing effects.
-							this.game.signals.creature.add(waitForMovementComplete);
-						},
+						// Wait until movement is completely finished before processing effects.
+						this.game.signals.creature.add(waitForMovementComplete);
 					},
-					G,
-				);
+				});
 				target.hexagons.forEach(function (hex) {
 					hex.createTrap('poisonous-vine', [effect], ability.creature.player, {
 						turnLifetime: lifetime,
@@ -302,37 +287,30 @@ export default (G) => {
 					// reduces the damage to guarantee at least 1 health remaining
 					if (this.isUpgraded() && isTeam(this.creature, trg, Team.ally)) {
 						trg.addEffect(
-							new Effect(
-								this.title,
-								this.creature,
-								trg,
-								'onUnderAttack',
-								{
-									effectFn: function (effect, damage) {
-										// Simulate the damage to determine how much damage would have
-										// been dealt; then reduce the damage so that it will not kill
-										while (true) {
-											let dmg = damage.applyDamage();
-											// If we can't reduce any further, give up and have the damage
-											// be zero
-											if (dmg.total <= 0 || damage.damages.shock <= 0 || trg.health <= 1) {
-												damage.damages = {
-													shock: 0,
-												};
-												break;
-											} else if (dmg.total >= trg.health) {
-												// Too much damage, would have killed; reduce and try again
-												damage.damages.shock--;
-											} else {
-												break;
-											}
+							new Effect(this.title, this.creature, trg, 'onUnderAttack', {
+								effectFn: function (effect, damage) {
+									// Simulate the damage to determine how much damage would have
+									// been dealt; then reduce the damage so that it will not kill
+									while (true) {
+										let dmg = damage.applyDamage();
+										// If we can't reduce any further, give up and have the damage
+										// be zero
+										if (dmg.total <= 0 || damage.damages.shock <= 0 || trg.health <= 1) {
+											damage.damages = {
+												shock: 0,
+											};
+											break;
+										} else if (dmg.total >= trg.health) {
+											// Too much damage, would have killed; reduce and try again
+											damage.damages.shock--;
+										} else {
+											break;
 										}
-									},
-									deleteTrigger: 'onEndPhase',
-									noLog: true,
+									}
 								},
-								G,
-							),
+								deleteTrigger: 'onEndPhase',
+								noLog: true,
+							}),
 						);
 					}
 
@@ -341,7 +319,6 @@ export default (G) => {
 						nextdmg, // Damage Type
 						1, // Area
 						[], // Effects
-						G,
 					);
 					nextdmg = trg.takeDamage(damage);
 

@@ -1,5 +1,5 @@
 // Import jQuery related stuff
-import * as $j from 'jquery';
+import $j from 'jquery';
 import 'jquery.transit';
 import dataJson from './data/units.json';
 import Game from './game';
@@ -17,7 +17,7 @@ import './style/main.less';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Too many unknown types.
 const AB = {} as any;
 // Create the game
-const G = new Game('0.4');
+const G = Game.getInstance();
 // Helper properties and methods for retrieving and playing back game logs.
 // TODO: Expose these in a less hacky way too.
 AB.currentGame = G;

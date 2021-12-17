@@ -66,7 +66,6 @@ export default (G) => {
 							},
 							stackable: false,
 						},
-						G,
 					),
 				);
 				this._damageTaken = false; // Reset the _damageTaken
@@ -155,7 +154,6 @@ export default (G) => {
 					ability.damages, // Damage type
 					1, // Area
 					[], // Effects
-					G,
 				);
 
 				target.takeDamage(damage);
@@ -379,7 +377,6 @@ export default (G) => {
 						ability.damages, // Damage type
 						1, // Area
 						[], // Effects
-						G,
 					);
 					// Apply damage on all hexes
 					for (let j = 0; j < target.size; j++) {
@@ -506,7 +503,6 @@ export default (G) => {
 									turnLifetime: 1,
 									stackable: false,
 								},
-								G,
 							),
 						);
 					}

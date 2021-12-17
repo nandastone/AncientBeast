@@ -65,7 +65,6 @@ export default (G) => {
 							},
 							stackable: false,
 						},
-						G,
 					),
 				);
 			},
@@ -188,7 +187,6 @@ export default (G) => {
 					damageType,
 					1, // Area
 					[], // Effects
-					G,
 				);
 
 				let trgIsNearby = vehemoth
@@ -475,7 +473,6 @@ export default (G) => {
 								ability.damages1, // Damage Type
 								1, // Area
 								[], // Effects
-								G,
 							),
 						);
 
@@ -560,16 +557,6 @@ export default (G) => {
 
 				let trgs = ability.getTargets(hex.adjacentHex(ability.radius).concat([hex])); // Include central hex
 
-				// var target = arrayUtils.last(path).creature;
-
-				// var damage = new Damage(
-				// 	ability.creature, //Attacker
-				// 	ability.damages, //Damage Type
-				// 	1, //Area
-				// 	[]	//Effects
-				// );
-				// target.takeDamage(damage);
-
 				let effect = new Effect(
 					'Frozen', // Name
 					ability.creature, // Caster
@@ -581,7 +568,6 @@ export default (G) => {
 							this.deleteEffect();
 						},
 					},
-					G,
 				);
 
 				ability.areaDamage(

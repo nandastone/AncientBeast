@@ -65,7 +65,6 @@ export default (G) => {
 					target, // Target
 					'', // Trigger
 					optArg, // Optional arguments
-					G,
 				);
 
 				target.addEffect(effect, undefined, 'Contaminated');
@@ -128,7 +127,6 @@ export default (G) => {
 					ability.damages, // Damage type
 					1, // Area
 					[], // Effects
-					G,
 				);
 
 				let dmg = target.takeDamage(damage);
@@ -162,7 +160,6 @@ export default (G) => {
 										regrowth: amount,
 									},
 								}, // Optional arguments
-								G,
 							),
 							'%CreatureName' + ability.creature.id + '% gained ' + amount + ' regrowth for now', // Custom log
 							'Regrowth++',
@@ -287,7 +284,6 @@ export default (G) => {
 							},
 							alterations: ability.effects[0],
 						}, // Optional arguments
-						G,
 					),
 				);
 			},
@@ -383,7 +379,6 @@ export default (G) => {
 					ability.damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 				let result = target.takeDamage(damage);
 

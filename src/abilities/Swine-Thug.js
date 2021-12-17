@@ -61,16 +61,9 @@ export default (G) => {
 						}
 					}
 				}
-				let effect = new Effect(
-					'Spa Goggles',
-					this.creature,
-					this.creature,
-					'mud-bath',
-					{
-						alterations: alterations,
-					},
-					G,
-				);
+				let effect = new Effect('Spa Goggles', this.creature, this.creature, 'mud-bath', {
+					alterations: alterations,
+				});
 				this.creature.addEffect(effect);
 
 				// Log message, assume that all buffs are the same amount, and there are
@@ -147,7 +140,6 @@ export default (G) => {
 					ability.damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 				let result = target.takeDamage(damage);
 				// Knock the target back if they are still alive
@@ -318,18 +310,11 @@ export default (G) => {
 
 				// If upgraded, hits will debuff target with -1 meditation
 				if (this.isUpgraded()) {
-					let effect = new Effect(
-						'Ground Ball',
-						ability.creature,
-						target,
-						'onDamage',
-						{
-							alterations: {
-								meditation: -1,
-							},
+					let effect = new Effect('Ground Ball', ability.creature, target, 'onDamage', {
+						alterations: {
+							meditation: -1,
 						},
-						G,
-					);
+					});
 					target.addEffect(effect);
 					G.log('%CreatureName' + target.id + "%'s meditation is lowered by 1");
 				}
@@ -339,7 +324,6 @@ export default (G) => {
 					ability.damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 				target.takeDamage(damage);
 			},
@@ -436,24 +420,17 @@ export default (G) => {
 				ability.end();
 
 				let effects = [
-					new Effect(
-						'Slow Down',
-						ability.creature,
-						hex,
-						'onStepIn',
-						{
-							requireFn: function () {
-								if (!this.trap.hex.creature) {
-									return false;
-								}
-								return this.trap.hex.creature.type != 'A1';
-							},
-							effectFn: function (effect, crea) {
-								crea.remainingMove--;
-							},
+					new Effect('Slow Down', ability.creature, hex, 'onStepIn', {
+						requireFn: function () {
+							if (!this.trap.hex.creature) {
+								return false;
+							}
+							return this.trap.hex.creature.type != 'A1';
 						},
-						G,
-					),
+						effectFn: function (effect, crea) {
+							crea.remainingMove--;
+						},
+					}),
 				];
 
 				hex.createTrap('mud-bath', effects, ability.creature.player);

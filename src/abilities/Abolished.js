@@ -41,7 +41,6 @@ export default (G) => {
 								burn: -1,
 							},
 						}, // Optional arguments
-						G,
 					),
 				);
 				target.stats.burn -= 1;
@@ -57,7 +56,6 @@ export default (G) => {
 									burn: 1,
 								},
 							}, // Optional arguments
-							G,
 						),
 					);
 				}
@@ -130,7 +128,6 @@ export default (G) => {
 						ability.damages, // Damage Type
 						1, // Area
 						[], // Effects
-						G,
 					);
 					target.takeDamage(damage);
 
@@ -194,7 +191,7 @@ export default (G) => {
 					if (!(creatureOrHex instanceof Creature)) {
 						creature = creatureOrHex.creature;
 					}
-					creature.takeDamage(new Damage(effect.attacker, ability.damages, 1, [], G), {
+					creature.takeDamage(new Damage(effect.attacker, ability.damages, 1, []), {
 						isFromTrap: true,
 					});
 					this.trap.destroy();
@@ -216,18 +213,11 @@ export default (G) => {
 					h.createTrap(
 						'firewall',
 						[
-							new Effect(
-								'Firewall',
-								crea,
-								h,
-								'onStepIn',
-								{
-									requireFn: requireFn,
-									effectFn: effectFn,
-									attacker: crea,
-								},
-								G,
-							),
+							new Effect('Firewall', crea, h, 'onStepIn', {
+								requireFn: requireFn,
+								effectFn: effectFn,
+								attacker: crea,
+							}),
 						],
 						crea.player,
 						{
@@ -299,7 +289,6 @@ export default (G) => {
 							ability.damages, // Damage Type
 							1, // Area
 							[], // Effects
-							G,
 						),
 					);
 				});

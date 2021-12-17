@@ -33,6 +33,7 @@ export class Ability {
 
 		// Events
 		this.game.signals.metaPowers.add(this.handleMetaPowerEvent, this);
+		this.triggeredThisChain = undefined;
 	}
 
 	handleMetaPowerEvent(message, payload) {
@@ -530,7 +531,7 @@ export class Ability {
 				continue;
 			}
 
-			let dmg = new Damage(attacker, damages, targets[i].hexesHit, effects, this.game);
+			let dmg = new Damage(attacker, damages, targets[i].hexesHit, effects);
 			let damageResult = targets[i].target.takeDamage(dmg, {
 				ignoreRetaliation,
 			});
@@ -775,5 +776,14 @@ export class Ability {
 
 		this.message = this.game.msg.abilities.noTarget;
 		return false;
+	}
+
+	/**
+	 * Intended to be override by ability data during construction.
+	 *
+	 * @returns {boolean} Ability can be used.
+	 */
+	require(required) {
+		return true;
 	}
 }

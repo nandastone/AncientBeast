@@ -42,21 +42,14 @@ export default (G) => {
 			//	activate() :
 			activate: function () {
 				this.creature.addEffect(
-					new Effect(
-						this._effectName,
-						this.creature,
-						this.creature,
-						'',
-						{
-							alterations: {
-								frost: 5,
-								defense: 5,
-								offense: this._getOffenseBuff(),
-							},
-							stackable: true,
+					new Effect(this._effectName, this.creature, this.creature, '', {
+						alterations: {
+							frost: 5,
+							defense: 5,
+							offense: this._getOffenseBuff(),
 						},
-						G,
-					),
+						stackable: true,
+					}),
 				);
 			},
 		},
@@ -115,21 +108,13 @@ export default (G) => {
 					damages, // Damage Type
 					1, // Area
 					[
-						new Effect(
-							this.title,
-							this.creature,
-							this.target,
-							'',
-							{
-								alterations: {
-									frost: -1,
-								},
-								stackable: true,
+						new Effect(this.title, this.creature, this.target, '', {
+							alterations: {
+								frost: -1,
 							},
-							G,
-						),
+							stackable: true,
+						}),
 					], // Effects
-					G,
 				);
 
 				target.takeDamage(damage);
@@ -183,21 +168,14 @@ export default (G) => {
 				// Upgraded ability adds a -10 defense debuff
 				if (this.isUpgraded()) {
 					effects.push(
-						new Effect(
-							this.title,
-							this.creature,
-							target,
-							'',
-							{
-								alterations: {
-									defense: -10,
-								},
-								stackable: true,
-								turnLifetime: 1,
-								deleteTrigger: 'onStartPhase',
+						new Effect(this.title, this.creature, target, '', {
+							alterations: {
+								defense: -10,
 							},
-							G,
-						),
+							stackable: true,
+							turnLifetime: 1,
+							deleteTrigger: 'onStartPhase',
+						}),
 					);
 				}
 				let damage = new Damage(
@@ -205,7 +183,6 @@ export default (G) => {
 					ability.damages, // Damage Type
 					1, // Area
 					effects,
-					G,
 				);
 
 				let result = target.takeDamage(damage);
@@ -299,7 +276,6 @@ export default (G) => {
 							d, // Damage Type
 							1, // Area
 							[], // Effects
-							G,
 						);
 
 						let result = trg.takeDamage(damage);

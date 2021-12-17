@@ -110,7 +110,6 @@ export default (G) => {
 					ability.damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 				target.takeDamage(damage);
 			},
@@ -172,7 +171,6 @@ export default (G) => {
 							trg, //Target
 							'', //Trigger
 							optArg, //Optional arguments
-							G,
 						);
 						trg.addEffect(effect);
 					}
@@ -209,7 +207,6 @@ export default (G) => {
 									trg, //Target
 									'', //Trigger
 									optArg, //Optional arguments
-									G,
 								);
 								trg.addEffect(
 									effect,
@@ -313,7 +310,6 @@ export default (G) => {
 							ability.damages1, // Damage Type
 							1, // Area
 							[], // Effects
-							G,
 						),
 					);
 				}

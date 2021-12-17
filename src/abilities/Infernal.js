@@ -40,30 +40,23 @@ export default (G) => {
 				hex.createTrap(
 					'scorched-ground',
 					[
-						new Effect(
-							this.title,
-							this.creature,
-							hex,
-							'onStepIn',
-							{
-								requireFn: function () {
-									if (!this.trap.hex.creature) {
-										return false;
-									}
-									// Magma Spawn immune to Scorched Ground
-									return this.trap.hex.creature.id !== ability.creature.id;
-								},
-								effectFn: function (effect, target) {
-									target.takeDamage(new Damage(effect.attacker, ability.damages, 1, [], G), {
-										isFromTrap: true,
-									});
-									this.trap.destroy();
-									effect.deleteEffect();
-								},
-								attacker: this.creature,
+						new Effect(this.title, this.creature, hex, 'onStepIn', {
+							requireFn: function () {
+								if (!this.trap.hex.creature) {
+									return false;
+								}
+								// Magma Spawn immune to Scorched Ground
+								return this.trap.hex.creature.id !== ability.creature.id;
 							},
-							G,
-						),
+							effectFn: function (effect, target) {
+								target.takeDamage(new Damage(effect.attacker, ability.damages, 1, []), {
+									isFromTrap: true,
+								});
+								this.trap.destroy();
+								effect.deleteEffect();
+							},
+							attacker: this.creature,
+						}),
 					],
 					this.creature.player,
 					{
@@ -139,7 +132,6 @@ export default (G) => {
 					d, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 				target.takeDamage(damage);
 
@@ -153,17 +145,10 @@ export default (G) => {
 
 				for (i = 0; i < stacksToAdd; i++) {
 					target.addEffect(
-						new Effect(
-							this.title,
-							this.creature,
-							target,
-							'',
-							{
-								deleteTrigger: '',
-								stackable: true,
-							},
-							G,
-						),
+						new Effect(this.title, this.creature, target, '', {
+							deleteTrigger: '',
+							stackable: true,
+						}),
 					);
 				}
 			},
@@ -304,7 +289,6 @@ export default (G) => {
 					ability.damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 
 				// Destroy traps currently under self

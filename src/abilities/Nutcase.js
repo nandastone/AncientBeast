@@ -48,7 +48,6 @@ export default (G) => {
 						deleteTrigger: 'onStartPhase',
 						turnLifetime: 1,
 					},
-					G,
 				);
 
 				const damageShieldEffect = new Effect(
@@ -62,7 +61,6 @@ export default (G) => {
 						deleteTrigger: 'onStartPhase',
 						turnLifetime: 1,
 					},
-					G,
 				);
 
 				this.creature.addEffect(immoveableEffect);
@@ -105,7 +103,6 @@ export default (G) => {
 					damage.attacker, // Target
 					'', // Trigger
 					o,
-					G,
 				);
 
 				damage.attacker.addEffect(
@@ -242,7 +239,6 @@ export default (G) => {
 											},
 											1,
 											[],
-											G,
 										),
 									);
 									eff.deleteEffect();
@@ -253,7 +249,6 @@ export default (G) => {
 							this.game.signals.creature.add(waitForMovementComplete);
 						},
 					},
-					G,
 				);
 
 				let damage = new Damage(
@@ -261,7 +256,6 @@ export default (G) => {
 					this.damages, // Damage Type
 					1, // Area
 					[effect], // Effects
-					G,
 				);
 
 				target.takeDamage(damage);
@@ -392,7 +386,7 @@ export default (G) => {
 				// Calculate damage, extra damage per hex distance
 				let damages = $j.extend({}, this.damages);
 				damages.pierce += runPath.length;
-				let damage = new Damage(this.creature, damages, 1, [], G);
+				let damage = new Damage(this.creature, damages, 1, []);
 
 				// Move towards target if necessary
 				if (runPath.length > 0) {
@@ -559,7 +553,6 @@ export default (G) => {
 					ability.damages, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 
 				let inlinefront2hex = matrices.inlinefront2hex;

@@ -37,7 +37,6 @@ export default (G) => {
 						}, // Damage Type
 						1, // Area
 						[], // Effects
-						G,
 					);
 					counter.counter = true;
 					G.activeCreature.takeDamage(counter);
@@ -114,7 +113,6 @@ export default (G) => {
 					damageAmount, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 
 				target.takeDamage(damage);
@@ -205,7 +203,6 @@ export default (G) => {
 					}, // Damage Type
 					1, // Area
 					[], // Effects
-					G,
 				);
 
 				ability.end();
