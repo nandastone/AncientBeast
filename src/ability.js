@@ -92,7 +92,6 @@ export class Ability {
 
 	/**
 	 * Get the trigger method for this ablity.
-	 * @return {string|Function} Trigger
 	 */
 	getTrigger() {
 		if (this.trigger !== undefined) {
@@ -785,5 +784,14 @@ export class Ability {
 	 */
 	require(required) {
 		return true;
+	}
+
+	/**
+	 * If returning a MovementType, it will override the Creature's movement type.
+	 *
+	 * @returns MovementType | undefine
+	 */
+	movementType() {
+		return undefined;
 	}
 }

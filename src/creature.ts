@@ -8,9 +8,9 @@ import Game from './game';
 import { Effect } from './effect';
 
 export enum MovementType {
-	Walk = 'walk',
-	Fly = 'flying',
-	Hover = 'hover',
+	Normal = 'normal',
+	Flying = 'flying',
+	Hovering = 'hovering',
 }
 
 // TODO: How to add abstract information about stat? i.e. stat is something that can be used in different places.
@@ -140,7 +140,7 @@ export class Creature {
 	abilities: Ability[];
 	grp: any;
 	sprite: any;
-	hintGrp: any;
+	hintGrp: Phaser.Group;
 	healthIndicatorGroup: any;
 	healthIndicatorSprite: any;
 	healthIndicatorText: any;
@@ -207,7 +207,7 @@ export class Creature {
 		this.animation = obj.animation;
 		this.display = obj.display;
 		this.drop = obj.drop;
-		this._movementType = 'normal';
+		this._movementType = MovementType.Normal;
 		this.temp = obj.temp;
 
 		if (obj.movementType) {
@@ -675,7 +675,7 @@ export class Creature {
 					args.creature.delayable = false;
 					game.UI.btnDelay.changeState('disabled');
 					args.creature.moveTo(hex, {
-						animation: args.creature.movementType() === 'flying' ? 'fly' : 'walk',
+						animation: args.creature.movementType() === MovementType.Flying ? 'fly' : 'walk',
 						callback: function () {
 							game.activeCreature.queryMove();
 						},
@@ -704,7 +704,7 @@ export class Creature {
 		this.facePlayerDefault();
 		this.updateHealth();
 
-		if (this.movementType() === 'flying') {
+		if (this.movementType() === MovementType.Flying) {
 			o.range = game.grid.getFlyingRange(this.x, this.y, remainingMove, this.size, this.id);
 		}
 
@@ -718,7 +718,8 @@ export class Creature {
 				overlayClass: 'creature moveto selected player' + args.creature.team,
 			});
 		};
-		let select = o.noPath || this.movementType() === 'flying' ? selectFlying : selectNormal;
+		let select =
+			o.noPath || this.movementType() === MovementType.Flying ? selectFlying : selectNormal;
 
 		if (this.noActionPossible) {
 			game.grid.querySelf({
@@ -903,7 +904,7 @@ export class Creature {
 				callbackStepIn: function () {
 					return true;
 				},
-				animation: this.movementType() === 'flying' ? 'fly' : 'walk',
+				animation: this.movementType() === MovementType.Flying ? 'fly' : 'walk',
 				ignoreMovementPoint: false,
 				ignorePath: false,
 				customMovementPoint: 0,
@@ -1389,8 +1390,8 @@ export class Creature {
 			this.addFatigue(dmgAmount);
 
 			// Display
-			let nbrDisplayed = dmgAmount ? '-' + dmgAmount : 0;
-			this.hint(nbrDisplayed, 'damage d' + dmgAmount);
+			const nbrDisplayed = dmgAmount ? '-' + dmgAmount : 0;
+			this.hint(`${nbrDisplayed}`, `damage d${dmgAmount}`);
 
 			if (!damage.noLog) {
 				game.log('%CreatureName' + this.id + '% is hit : ' + nbrDisplayed + ' health');
@@ -1584,7 +1585,7 @@ export class Creature {
 		}
 	}
 
-	hint(text, cssClass) {
+	hint(text: string, cssClass: string) {
 		let game = this.game,
 			tooltipSpeed = 250,
 			tooltipDisplaySpeed = 500,
@@ -1624,10 +1625,10 @@ export class Creature {
 
 		// Remove constant element
 		this.hintGrp.forEach(
-			(grpHintElem) => {
-				if (grpHintElem.cssClass == 'confirm') {
-					grpHintElem.cssClass = 'confirm_deleted';
-					grpHintElem.tweenAlpha = game.Phaser.add
+			(grpHintElem: Phaser.Text) => {
+				if (grpHintElem.data.cssClass == 'confirm') {
+					grpHintElem.data.cssClass = 'confirm_deleted';
+					grpHintElem.data.tweenAlpha = game.Phaser.add
 						.tween(grpHintElem)
 						.to(
 							{
@@ -1637,8 +1638,8 @@ export class Creature {
 							tooltipTransition,
 						)
 						.start();
-					grpHintElem.tweenAlpha.onComplete.add(() => {
-						this.destroy();
+					grpHintElem.data.tweenAlpha.onComplete.add((targetObject, tween) => {
+						tween.destroy();
 					}, grpHintElem);
 				}
 			},
@@ -1650,10 +1651,9 @@ export class Creature {
 		hint.anchor.setTo(0.5, 0.5);
 
 		hint.alpha = 0;
-		hint.cssClass = cssClass;
 
 		if (cssClass == 'confirm') {
-			hint.tweenAlpha = game.Phaser.add
+			hint.data.tweenAlpha = game.Phaser.add
 				.tween(hint)
 				.to(
 					{
@@ -1664,7 +1664,7 @@ export class Creature {
 				)
 				.start();
 		} else {
-			hint.tweenAlpha = game.Phaser.add
+			hint.data.tweenAlpha = game.Phaser.add
 				.tween(hint)
 				.to(
 					{
@@ -1688,8 +1688,8 @@ export class Creature {
 					tooltipTransition,
 				)
 				.start();
-			hint.tweenAlpha.onComplete.add(function () {
-				this.destroy();
+			hint.data.tweenAlpha.onComplete.add((targetObject, tween) => {
+				tween.destroy();
 			}, hint);
 		}
 

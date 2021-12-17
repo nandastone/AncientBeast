@@ -24,6 +24,7 @@ export default (G) => {
 			 * @return {string} movement type, "hover" or "flying"
 			 */
 			movementType: function () {
+				// TODO: Implement hover movement.
 				return 'flying';
 			},
 
