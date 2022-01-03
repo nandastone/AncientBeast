@@ -48,14 +48,19 @@ export default (G) => {
 					return false;
 				}
 
+				// Double check the destination hex actually contains a creature.
+				if (!hex.creature) {
+					return false;
+				}
+
 				/* Determine which (if any) frontal hexes contain an enemy that would trigger
 				the ability. */
 				let triggerHexes = [];
 
 				if (hex.creature === this.creature) {
-					// Bunny has been moved by another active creature, not itself..
+					// Bunny has been moved by another active creature, not itself.
 					triggerHexes = this._detectFrontHexesWithEnemy();
-				} else if (isTeam(hex.creature, this.creature, Team.enemy)) {
+				} else if (isTeam(hex.creature, this.creature, Team.Enemy)) {
 					// Enemy movement.
 					const frontHexWithEnemy = this._findEnemyHexInFront(hex);
 
@@ -67,8 +72,9 @@ export default (G) => {
 				const abilityCanTrigger =
 					triggerHexes.length &&
 					this.timesUsedThisTurn < this._getUsesPerTurn() &&
-					// Bunny cannot use this ability if affected by these states.
-					!(this.creature.materializationSickness || this.creature.stats.frozen) &&
+					// Bunny cannot use this ability if affected by these statuses.
+					!this.creature.materializationSickness &&
+					!this.creature.isFrozen() &&
 					// Bunny needs a valid hex to retreat into.
 					this._getHopHex();
 
@@ -78,10 +84,11 @@ export default (G) => {
 			//	activate() :
 			activate: function (hex) {
 				let ability = this;
+
 				ability.end();
 
 				this.creature.moveTo(this._getHopHex(), {
-					callbackStepIn: function () {
+					callback: function () {
 						G.activeCreature.queryMove();
 					},
 					ignorePath: true,
@@ -95,13 +102,29 @@ export default (G) => {
 			},
 
 			/**
-			 * Analyse frontal enemy positions and determine which (if any) Hexes are
+			 * Analyse frontal enemy positions and determine which (if any) hexes are
 			 * available for the Bunny to hop backwards into.
 			 *
-			 * Movement rules:
-			 * - If movement in the opposite direction is impossible, it will move backwards.
-			 * - If the top and bottom front hexes are both occupied, it will move backwards.
-			 * - If moving backwards and is unable to do so. movement is cancelled.
+			 * Hop movement rules:
+			 * - Bunny will first attempt to move in an opposite direction from the approaching
+			 *   enemy. For example, if approached from the bottom-left it will try hop
+			 *   towards the top-right.
+			 *   ⬡⬡↗️
+			 *   ⬡🐇⬡
+			 *   👹⬡⬡
+			 * - If movement described above is impossible, the Bunny will instead move backwards.
+			 *   ⬡⬡❌
+			 *   ⬡🐇➡️
+			 *   👹⬡⬡
+			 * - If an enemy is approaching from both top and bottom front hexes, Bunny
+			 *   will move backwards.
+			 *   👹⬡⬡
+			 *   ⬡🐇➡️
+			 *   👹⬡⬡
+			 * - If trying to move backwards and is unable to do so, movement is cancelled.
+			 *   ⬡⬡⬡
+			 *   👹🐇❌
+			 *   ⬡⬡⬡
 			 *
 			 * At this point we have determined the ability should be triggered, so we
 			 * are only concerned which enemies to hop away from, not which enemies originally
@@ -165,7 +188,7 @@ export default (G) => {
 			_detectFrontHexesWithEnemy: function () {
 				const hexesInFront = this.creature.getHexMap(matrices.front1hex);
 				const hexesWithEnemy = hexesInFront.reduce((acc, curr, idx) => {
-					const hexHasEnemy = curr.creature && isTeam(curr.creature, this.creature, Team.enemy);
+					const hexHasEnemy = curr.creature && isTeam(curr.creature, this.creature, Team.Enemy);
 
 					if (hexHasEnemy) {
 						acc.push({
@@ -187,7 +210,7 @@ export default (G) => {
 			//	Type : Can be "onQuery", "onStartPhase", "onDamage"
 			trigger: 'onQuery',
 
-			_targetTeam: Team.enemy,
+			_targetTeam: Team.Enemy,
 
 			// 	require() :
 			require: function () {
@@ -228,7 +251,7 @@ export default (G) => {
 
 				let damages = ability.damages;
 				// If upgraded, do pure damage against frozen targets
-				if (this.isUpgraded() && target.stats.frozen) {
+				if (this.isUpgraded() && target.isFrozen()) {
 					damages = {
 						pure: 0,
 					};
@@ -255,7 +278,7 @@ export default (G) => {
 			trigger: 'onQuery',
 
 			directions: [1, 1, 1, 1, 1, 1],
-			_targetTeam: Team.both,
+			_targetTeam: Team.Both,
 
 			// 	require() :
 			require: function () {
@@ -300,7 +323,7 @@ export default (G) => {
 
 				let target = arrayUtils.last(path).creature;
 				// No blow size penalty if upgraded and target is frozen
-				let dist = 5 - (this.isUpgraded() && target.stats.frozen ? 0 : target.size);
+				let dist = 5 - (this.isUpgraded() && target.isFrozen() ? 0 : target.size);
 				let dir = [];
 				switch (args.direction) {
 					case 0: // Upright
@@ -370,7 +393,7 @@ export default (G) => {
 			//	Type : Can be "onQuery", "onStartPhase", "onDamage"
 			trigger: 'onQuery',
 
-			_targetTeam: Team.enemy,
+			_targetTeam: Team.Enemy,
 
 			// 	require() :
 			require: function () {
@@ -445,9 +468,7 @@ export default (G) => {
 
 					// If upgraded and melee range, freeze the target
 					if (ability.isUpgraded() && damageResult.damageObj.melee) {
-						target.stats.frozen = true;
-						target.updateHealth();
-						G.UI.updateFatigue();
+						target.freeze();
 					}
 				}, sprite); // End tween.onComplete
 			},

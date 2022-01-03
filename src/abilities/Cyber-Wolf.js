@@ -37,7 +37,7 @@ export default (G) => {
 				if (!target) {
 					return;
 				}
-				if (!isTeam(this.creature, target, Team.enemy)) {
+				if (!isTeam(this.creature, target, Team.Enemy)) {
 					return;
 				}
 
@@ -61,7 +61,7 @@ export default (G) => {
 			//	Type : Can be "onQuery", "onStartPhase", "onDamage"
 			trigger: 'onQuery',
 
-			_targetTeam: Team.enemy,
+			_targetTeam: Team.Enemy,
 
 			// 	require() :
 			require: function () {
@@ -212,12 +212,11 @@ export default (G) => {
 				G.grid.queryChoice({
 					fnOnCancel: function () {
 						G.activeCreature.queryMove();
-						G.grid.clearHexViewAlterations();
 					},
 					fnOnConfirm: function () {
 						ability.animation(...arguments);
 					},
-					team: Team.both,
+					team: Team.Both,
 					id: crea.id,
 					requireCreature: false,
 					choices: choices,
@@ -302,8 +301,6 @@ export default (G) => {
 				if (this.token > 0) {
 					G.log('%CreatureName' + this.creature.id + '% missed ' + this.token + ' rocket(s)');
 				}
-
-				G.UI.checkAbilities();
 			},
 		},
 
@@ -337,7 +334,7 @@ export default (G) => {
 					fnOnConfirm: function () {
 						ability.animation(...arguments);
 					}, // fnOnConfirm
-					team: Team.enemy,
+					team: Team.Enemy,
 					id: crea.id,
 					flipped: crea.player.flipped,
 					hexes: hexes,

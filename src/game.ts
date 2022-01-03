@@ -209,7 +209,7 @@ export default class Game {
 		this.session = undefined;
 		this.client = undefined;
 		this.connect = undefined;
-		this.debugMode = false;
+		this.debugMode = !!process.env.DEBUG_MODE;
 		this.multiplayer = false;
 		this.matchInitialized = false;
 		this.realms = ['A', 'E', 'G', 'L', 'P', 'S', 'W'];
@@ -803,7 +803,6 @@ export default class Game {
 		let totalCreatures = this.creatures.length,
 			i;
 
-		this.grid.clearHexViewAlterations();
 		this.turn++;
 		this.log('Round ' + this.turn, 'roundmarker', true);
 		this.queue.nextRound();
@@ -1003,7 +1002,6 @@ export default class Game {
 			o.callback.apply();
 		}, 1000);
 
-		this.grid.clearHexViewAlterations();
 		this.activeCreature.facePlayerDefault();
 
 		let skipTurn = new Date().getTime();

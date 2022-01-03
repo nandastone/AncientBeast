@@ -102,12 +102,11 @@ export default (G) => {
 				G.grid.queryChoice({
 					fnOnCancel: function () {
 						G.activeCreature.queryMove();
-						G.grid.clearHexViewAlterations();
 					},
 					fnOnConfirm: function () {
 						ability.animation(...arguments);
 					},
-					team: Team.both,
+					team: Team.Both,
 					id: this.creature.id,
 					requireCreature: false,
 					choices: choices,
@@ -135,7 +134,7 @@ export default (G) => {
 						continue;
 					}
 					let damages = this.damages;
-					if (isTeam(this.creature, targets[i].target, Team.enemy)) {
+					if (isTeam(this.creature, targets[i].target, Team.Enemy)) {
 						damages = enemyDamages;
 					}
 					let dmg = new Damage(this.creature, damages, targets[i].hexesHit, []);
@@ -244,7 +243,7 @@ export default (G) => {
 			trigger: 'onQuery',
 
 			directions: [1, 1, 1, 1, 1, 1],
-			_targetTeam: Team.enemy,
+			_targetTeam: Team.Enemy,
 
 			// 	require() :
 			require: function () {

@@ -13,13 +13,13 @@ import { MetaPowers } from './meta-powers';
 /**
  * Class UI
  *
- * Object containing UI DOM element, update functions and event managment on UI.
+ * Object containing UI DOM element, update functions and event management on UI.
  */
 export class UI {
 	/* Attributes
 	 *
 	 * NOTE : attributes and variables starting with $ are jquery element
-	 * and jquery function can be called dirrectly from them.
+	 * and jquery function can be called directly from them.
 	 *
 	 * $display :		UI container
 	 * $queue :		Queue container
@@ -71,14 +71,9 @@ export class UI {
 		this.btnToggleDash = new Button(
 			{
 				$button: $j('.toggledash'),
+				hasShortcut: true,
 				click: () => {
-					// if dash is open and audio player is visible, just show creatures
-					if (this.dashopen && $j('#musicplayerwrapper').is(':visible')) {
-						$j('#playertabswrapper').show();
-						$j('#musicplayerwrapper').hide();
-					}
-
-					this.toggleDash();
+					this.game.signals.ui.dispatch('toggleDash');
 				},
 				overridefreeze: true,
 			},
@@ -90,7 +85,11 @@ export class UI {
 		this.btnToggleScore = new Button(
 			{
 				$button: $j('.togglescore'),
-				click: () => this.toggleScoreboard(),
+				hasShortcut: true,
+				click: () => {
+					this.game.signals.ui.dispatch('toggleScore');
+				},
+				overridefreeze: true,
 			},
 			game,
 		);
@@ -101,6 +100,7 @@ export class UI {
 				$button: $j('#fullscreen.button'),
 				hasShortcut: true,
 				click: () => this.fullscreen.toggle(),
+				overridefreeze: true,
 			},
 			game,
 		);
@@ -109,15 +109,10 @@ export class UI {
 		// Audio Button
 		this.btnAudio = new Button(
 			{
-				$button: $j('#audio.button'),
+				$button: $j('.toggle-music-player'),
 				hasShortcut: true,
 				click: () => {
-					// if audio element was already active, close dash
-					if ($j('#musicplayerwrapper').is(':visible')) {
-						this.closeDash();
-					} else {
-						this.showMusicPlayer();
-					}
+					this.game.signals.ui.dispatch('toggleMusicPlayer');
 				},
 				overridefreeze: true,
 			},
@@ -266,7 +261,6 @@ export class UI {
 								return false;
 							}
 
-							game.grid.clearHexViewAlterations();
 							let ability = game.activeCreature.abilities[i];
 							// Passive ability icon can cycle between usable abilities
 							if (i == 0) {
@@ -283,7 +277,6 @@ export class UI {
 							// Activate Ability
 							game.activeCreature.abilities[i].use();
 						} else {
-							game.grid.clearHexViewAlterations();
 							// Cancel Ability
 							this.closeDash();
 							game.activeCreature.queryMove();
@@ -487,19 +480,12 @@ export class UI {
 					let isAbilityActive =
 						this.activeAbility && this.$scoreboard.hasClass('hide') && !this.chat.isOpen;
 
-					if (this.dashopen) {
-						this.closeDash();
-					} else if (isAbilityActive) {
+					if (isAbilityActive) {
 						/* Check to see if dash view or chat are open first before
 						 * canceling the active ability when using Esc hotkey
 						 */
-						game.grid.clearHexViewAlterations();
 						game.activeCreature.queryMove();
 						this.selectAbility(-1);
-					} else {
-						// Close chat and/or dash view if open
-						this.chat.hide();
-						this.$scoreboard.addClass('hide');
 					}
 
 					this.game.signals.ui.dispatch('closeInterfaceScreens');
@@ -589,7 +575,7 @@ export class UI {
 					break;
 			}
 		});
-		// TODO: Function to exit dash via Tab or Esc hotkeys
+
 		$j('#combatwrapper, #dash, #toppanel').on('wheel', (e) => {
 			if (game.freezedInput) {
 				return;
@@ -672,12 +658,55 @@ export class UI {
 			$j('.timepool').text(time.getTimer(game.timePool));
 		}
 
+		this.confirmWindowUnload();
+
 		$j('#tabwrapper a').removeAttr('href'); // Empty links
 
 		this.btnExit.changeState(ButtonStateEnum.hidden);
 		// Show UI
 		this.$display.show();
 		this.$dash.hide();
+
+		// Events
+		this.game.signals.ui.add(this._handleUiEvent, this);
+	}
+
+	/**
+	 * Handle events on the "ui" channel.
+	 *
+	 * @param {string} message Event name.
+	 * @param {object} payload Event payload.
+	 */
+	_handleUiEvent(message, payload) {
+		if (message === 'toggleDash') {
+			this.toggleDash();
+			this.closeMusicPlayer();
+			this.closeScoreboard();
+		}
+
+		if (message === 'toggleScore') {
+			this.toggleScoreboard();
+			this.closeDash();
+			this.closeMusicPlayer();
+		}
+
+		if (message === 'toggleMusicPlayer') {
+			this.toggleMusicPlayer();
+			this.closeDash();
+			this.closeScoreboard();
+		}
+
+		if (message === 'toggleMetaPowers') {
+			this.closeDash();
+			this.closeMusicPlayer();
+			this.closeScoreboard();
+		}
+
+		if (message === 'closeInterfaceScreens') {
+			this.closeDash();
+			this.closeMusicPlayer();
+			this.closeScoreboard();
+		}
 	}
 
 	showAbilityCosts(abilityId) {
@@ -785,18 +814,15 @@ export class UI {
 		});
 	}
 
-	/* showCreature(creatureType, player, summonCreatureType, view, clickMethod)
+	/**
+	 * Query a creature in the available creatures of the active player.
 	 *
-	 * creatureType :	String :	Creature type
-	 * player :		Integer :	Player ID
-	 * summonCreatureType:		String:    Creature type to summon
-	 * view:		Boolean:    True to disable/hide materialize button
-	 * clickMethod:		String:   Method used to view creatures('emptyHex', 'portrait', 'grid')
-	 * Query a creature in the available creatures of the active player
-	 *
+	 * @param {string} creatureType Creature type
+	 * @param {number} player Player ID
+	 * @param {'emptyHex' | 'portrait' | 'grid'} clickMethod Method used to view creatures.
 	 */
 	showCreature(creatureType, player, clickMethod) {
-		let game = this.game;
+		const game = this.game;
 
 		if (!this.dashopen) {
 			this.$dash.show().css('opacity', 0);
@@ -1001,10 +1027,12 @@ export class UI {
 							this.materializeToggled = false;
 							this.selectAbility(3);
 							this.closeDash();
-							if (this.lastViewedCreature != '') {
+
+							if (this.lastViewedCreature) {
 								activeCreature.abilities[3].materialize(this.lastViewedCreature);
 							} else {
 								activeCreature.abilities[3].materialize(this.selectedCreature);
+								this.lastViewedCreature = this.selectedCreature;
 							}
 						};
 						$j('#card .sideA').on('click', this.materializeButton.click);
@@ -1042,7 +1070,8 @@ export class UI {
 						$j('#materialize_button p').text(game.msg.ui.dash.selectUnit);
 						// Bind button for random unit selection
 						this.materializeButton.click = () => {
-							this.showRandomCreature();
+							const creatureId = this.showRandomCreature();
+							this.lastViewedCreature = creatureId;
 						};
 						// Apply the changes
 						$j('#card .sideA').on('click', this.materializeButton.click);
@@ -1142,41 +1171,52 @@ export class UI {
 		}
 	}
 
-	/* showRandomCreature()
-	 *
+	/**
 	 * Selects a random available unit and shows its card on the dash.
 	 *
 	 * Calls showCreature(chosenRandomUnit, activePlayerID, '') to handle opening the dash.
 	 *
 	 * Called by toggleDash with the randomize option and by clicking the materialize button
 	 * when it reads "Please select..."
+	 *
+	 * @returns ID of the random creature selected.
 	 */
-
 	showRandomCreature() {
-		let game = this.game;
+		const game = this.game;
 		// Figure out what the active player can summon
 		const activePlayer = game.players[this.game.activeCreature.player.id];
 		const deadOrSummonedTypes = activePlayer.creatures.map((creature) => creature.type);
 		const availableTypes = activePlayer.availableCreatures.filter(
 			(el) => !deadOrSummonedTypes.includes(el),
 		);
+
 		// Randomize array to grab a random creature
 		for (let i = availableTypes.length - 1; i > 0; i--) {
-			let j = Math.floor(Math.random() * (i + 1));
-			let temp = availableTypes[i];
+			const j = Math.floor(Math.random() * (i + 1));
+			const temp = availableTypes[i];
 			availableTypes[i] = availableTypes[j];
 			availableTypes[j] = temp;
 		}
+
 		// Grab the first creature we can afford (if none, default to priest)
 		let typeToPass = '--';
 		availableTypes.some((creature) => {
 			const lvl = creature.substring(1, 2) - 0;
 			const size = game.retrieveCreatureStats(creature).size - 0;
 			const plasmaCost = lvl + size;
-			return plasmaCost <= activePlayer.plasma ? ((typeToPass = creature), true) : false;
+
+			if (plasmaCost <= activePlayer.plasma) {
+				typeToPass = creature;
+				return true;
+			}
+
+			return false;
 		});
+
 		// Show the random unit selected
 		this.showCreature(typeToPass, game.activeCreature.team, '');
+
+		return typeToPass;
 	}
 
 	selectAbility(i) {
@@ -1214,7 +1254,6 @@ export class UI {
 
 		$j('#tabwrapper').show();
 		$j('#playertabswrapper').show();
-		$j('#musicplayerwrapper').hide();
 
 		// Change creature status
 		game.players[id].availableCreatures.forEach((creature) => {
@@ -1260,24 +1299,12 @@ export class UI {
 			});
 	}
 
-	showMusicPlayer() {
-		let game = this.game;
+	toggleMusicPlayer() {
+		$j('#musicplayerwrapper').toggleClass('hide');
+	}
 
-		// If the scoreboard is displayed, hide it
-		if (!this.$scoreboard.hasClass('hide')) {
-			this.$scoreboard.addClass('hide');
-		}
-
-		this.$dash.addClass('active');
-		this.showCreature(game.activeCreature.type, game.activeCreature.team);
-		this.selectedPlayer = -1;
-
-		// Dash class
-		this.$dash.removeClass('selected0 selected1 selected2 selected3');
-
-		$j('#tabwrapper').hide();
-		$j('#playertabswrapper').hide();
-		$j('#musicplayerwrapper').show();
+	closeMusicPlayer() {
+		$j('#musicplayerwrapper').addClass('hide');
 	}
 
 	// Function to close scoreboard if pressing outside of it
@@ -1297,7 +1324,7 @@ export class UI {
 
 		// If the scoreboard is already displayed, hide it and return
 		if (!this.$scoreboard.hasClass('hide')) {
-			this.$scoreboard.addClass('hide');
+			this.closeScoreboard();
 
 			return;
 		}
@@ -1479,6 +1506,10 @@ export class UI {
 		this.$scoreboard.removeClass('hide');
 	}
 
+	closeScoreboard() {
+		this.$scoreboard.addClass('hide');
+	}
+
 	/* toggleDash()
 	 *
 	 * Show the dash and hide some buttons
@@ -1487,22 +1518,19 @@ export class UI {
 
 	toggleDash(randomize) {
 		let game = this.game;
-		if (!this.$dash.hasClass('active')) {
-			// If the scoreboard is displayed, hide it
-			if (!this.$scoreboard.hasClass('hide')) {
-				this.$scoreboard.addClass('hide');
-			}
 
-			if (randomize && this.lastViewedCreature == '') {
-				// Optional: select a random creature from the grid
-				this.showRandomCreature();
-			} else if (this.lastViewedCreature !== '') {
-				this.showCreature(this.lastViewedCreature, game.activeCreature.team, '');
-			} else {
-				this.showCreature(game.activeCreature.type, game.activeCreature.team, '');
-			}
-		} else {
+		if (this.$dash.hasClass('active')) {
 			this.closeDash();
+			return;
+		}
+
+		if (randomize && !this.lastViewedCreature) {
+			// Optional: select a random creature from the grid
+			this.showRandomCreature();
+		} else if (this.lastViewedCreature) {
+			this.showCreature(this.lastViewedCreature, game.activeCreature.team, '');
+		} else {
+			this.showCreature(game.activeCreature.type, game.activeCreature.team, '');
 		}
 	}
 
@@ -1531,118 +1559,125 @@ export class UI {
 	}
 
 	gridSelectUp() {
-		let game = this.game,
-			b = this.selectedCreature,
-			nextCreature;
+		const game = this.game;
+		const creatureType = this.selectedCreature;
+		let nextCreature;
 
-		if (b == '--') {
+		const isDarkPriest = creatureType === '--';
+		if (isDarkPriest) {
 			this.showCreature('W1', this.selectedPlayer);
 			return;
 		}
 
-		if (game.realms.indexOf(b[0]) - 1 > -1) {
-			let r = game.realms[game.realms.indexOf(b[0]) - 1];
-			nextCreature = r + b[1];
+		if (game.realms.indexOf(creatureType[0]) - 1 > -1) {
+			const realm = game.realms[game.realms.indexOf(creatureType[0]) - 1];
+			nextCreature = realm + creatureType[1];
+			this.lastViewedCreature = nextCreature;
 			this.showCreature(nextCreature, this.selectedPlayer);
-		} else {
-			// End of the grid
-			//this.showCreature("--");
 		}
 	}
 
 	gridSelectDown() {
-		let game = this.game,
-			b = this.selectedCreature,
-			nextCreature;
+		const game = this.game;
+		const creatureType = this.selectedCreature;
+		let nextCreature;
 
-		if (b == '--') {
+		const isDarkPriest = creatureType === '--';
+		if (isDarkPriest) {
 			this.showCreature('A1', this.selectedPlayer);
 			return;
 		}
 
-		if (game.realms.indexOf(b[0]) + 1 < game.realms.length) {
-			let r = game.realms[game.realms.indexOf(b[0]) + 1];
-			nextCreature = r + b[1];
+		if (game.realms.indexOf(creatureType[0]) + 1 < game.realms.length) {
+			const realm = game.realms[game.realms.indexOf(creatureType[0]) + 1];
+			nextCreature = realm + creatureType[1];
+			this.lastViewedCreature = nextCreature;
 			this.showCreature(nextCreature, this.selectedPlayer);
-		} else {
-			// End of the grid
-			//this.showCreature("--");
 		}
 	}
 
 	gridSelectLeft() {
-		let b = this.selectedCreature == '--' ? 'A0' : this.selectedCreature,
-			nextCreature;
+		const isDarkPriest = this.selectedCreature === '--';
+		const creatureType = isDarkPriest ? 'A0' : this.selectedCreature;
+		let nextCreature;
 
-		if (b[1] - 1 < 1) {
+		if (creatureType[1] - 1 < 1) {
 			// End of row
 			return;
 		} else {
-			nextCreature = b[0] + (b[1] - 1);
+			nextCreature = creatureType[0] + (creatureType[1] - 1);
+			this.lastViewedCreature = nextCreature;
 			this.showCreature(nextCreature, this.selectedPlayer);
 		}
 	}
 
 	gridSelectRight() {
-		let b = this.selectedCreature == '--' ? 'A8' : this.selectedCreature,
-			nextCreature;
+		const isDarkPriest = this.selectedCreature === '--';
+		const creatureType = isDarkPriest ? 'A8' : this.selectedCreature;
+		let nextCreature;
 
-		if (b[1] - 0 + 1 > 7) {
+		if (creatureType[1] - 0 + 1 > 7) {
 			// End of row
 			return;
 		} else {
-			nextCreature = b[0] + (b[1] - 0 + 1);
+			nextCreature = creatureType[0] + (creatureType[1] - 0 + 1);
+			this.lastViewedCreature = nextCreature;
 			this.showCreature(nextCreature, this.selectedPlayer);
 		}
 	}
 
 	gridSelectNext() {
-		let game = this.game,
-			b = this.selectedCreature == '--' ? 'A0' : this.selectedCreature,
-			valid,
-			nextCreature;
+		const game = this.game;
+		const isDarkPriest = this.selectedCreature === '--';
+		const creatureType = isDarkPriest ? 'A0' : this.selectedCreature;
+		let valid;
+		let nextCreature;
 
-		if (b[1] - 0 + 1 > 7) {
+		if (creatureType[1] - 0 + 1 > 7) {
 			// End of row
-			if (game.realms.indexOf(b[0]) + 1 < game.realms.length) {
-				let r = game.realms[game.realms.indexOf(b[0]) + 1];
+			if (game.realms.indexOf(creatureType[0]) + 1 < game.realms.length) {
+				const realm = game.realms[game.realms.indexOf(creatureType[0]) + 1];
 
 				// Test If Valid Creature
-				if ($j.inArray(r + '1', game.players[this.selectedPlayer].availableCreatures) > 0) {
+				if ($j.inArray(realm + '1', game.players[this.selectedPlayer].availableCreatures) > 0) {
 					valid = true;
 
 					for (let i = 0, len = game.players[this.selectedPlayer].creatures.length; i < len; i++) {
-						let creature = game.players[this.selectedPlayer].creatures[i];
+						const creature = game.players[this.selectedPlayer].creatures[i];
 
-						if (creature instanceof Creature && creature.type == r + '1' && creature.dead) {
+						if (creature instanceof Creature && creature.type == realm + '1' && creature.dead) {
 							valid = false;
 						}
 					}
 
 					if (valid) {
-						nextCreature = r + '1';
+						nextCreature = realm + '1';
+						this.lastViewedCreature = nextCreature;
 						this.showCreature(nextCreature, this.selectedPlayer);
 						return;
 					}
 				}
 
-				this.selectedCreature = r + '1';
+				this.selectedCreature = realm + '1';
 			} else {
 				return;
 			}
 		} else {
 			// Test If Valid Creature
 			if (
-				$j.inArray(b[0] + (b[1] - 0 + 1), game.players[this.selectedPlayer].availableCreatures) > 0
+				$j.inArray(
+					creatureType[0] + (creatureType[1] - 0 + 1),
+					game.players[this.selectedPlayer].availableCreatures,
+				) > 0
 			) {
 				valid = true;
 
 				for (let i = 0, len = game.players[this.selectedPlayer].creatures.length; i < len; i++) {
-					let creature = game.players[this.selectedPlayer].creatures[i];
+					const creature = game.players[this.selectedPlayer].creatures[i];
 
 					if (
 						creature instanceof Creature &&
-						creature.type == b[0] + (b[1] - 0 + 1) &&
+						creature.type == creatureType[0] + (creatureType[1] - 0 + 1) &&
 						creature.dead
 					) {
 						valid = false;
@@ -1650,73 +1685,85 @@ export class UI {
 				}
 
 				if (valid) {
-					nextCreature = b[0] + (b[1] - 0 + 1);
+					nextCreature = creatureType[0] + (creatureType[1] - 0 + 1);
+					this.lastViewedCreature = nextCreature;
 					this.showCreature(nextCreature, this.selectedPlayer);
 					return;
 				}
 			}
 
-			this.selectedCreature = b[0] + (b[1] - 0 + 1);
+			this.selectedCreature = creatureType[0] + (creatureType[1] - 0 + 1);
 		}
 
 		this.gridSelectNext();
 	}
 
 	gridSelectPrevious() {
-		let game = this.game,
-			b = this.selectedCreature == '--' ? 'W8' : this.selectedCreature,
-			valid,
-			nextCreature;
+		const game = this.game;
+		const creatureType = this.selectedCreature == '--' ? 'W8' : this.selectedCreature;
+		let valid;
+		let nextCreature;
 
-		if (b[1] - 1 < 1) {
+		if (creatureType[1] - 1 < 1) {
 			// End of row
-			if (game.realms.indexOf(b[0]) - 1 > -1) {
-				let r = game.realms[game.realms.indexOf(b[0]) - 1];
+			if (game.realms.indexOf(creatureType[0]) - 1 > -1) {
+				const realm = game.realms[game.realms.indexOf(creatureType[0]) - 1];
 
 				// Test if valid creature
-				if ($j.inArray(r + '7', game.players[this.selectedPlayer].availableCreatures) > 0) {
+				if ($j.inArray(realm + '7', game.players[this.selectedPlayer].availableCreatures) > 0) {
 					valid = true;
 
 					for (let i = 0, len = game.players[this.selectedPlayer].creatures.length; i < len; i++) {
-						let creature = game.players[this.selectedPlayer].creatures[i];
+						const creature = game.players[this.selectedPlayer].creatures[i];
 
-						if (creature instanceof Creature && creature.type == r + '7' && creature.dead) {
+						if (creature instanceof Creature && creature.type == realm + '7' && creature.dead) {
 							valid = false;
 						}
 					}
 
 					if (valid) {
-						nextCreature = r + '7';
+						nextCreature = realm + '7';
+						this.lastViewedCreature = nextCreature;
 						this.showCreature(nextCreature, this.selectedPlayer);
 						return;
 					}
 				}
 
-				this.selectedCreature = r + '7';
+				this.selectedCreature = realm + '7';
 			} else {
 				return;
 			}
 		} else {
 			// Test if valid creature
-			if ($j.inArray(b[0] + (b[1] - 1), game.players[this.selectedPlayer].availableCreatures) > 0) {
+			if (
+				$j.inArray(
+					creatureType[0] + (creatureType[1] - 1),
+					game.players[this.selectedPlayer].availableCreatures,
+				) > 0
+			) {
 				valid = true;
 
 				for (let i = 0, len = game.players[this.selectedPlayer].creatures.length; i < len; i++) {
-					let creature = game.players[this.selectedPlayer].creatures[i];
+					const creature = game.players[this.selectedPlayer].creatures[i];
 
-					if (creature instanceof Creature && creature.type == b[0] + (b[1] - 1) && creature.dead) {
+					if (
+						creature instanceof Creature &&
+						creature.type == creatureType[0] + (creatureType[1] - 1) &&
+						creature.dead
+					) {
 						valid = false;
 					}
 				}
 
 				if (valid) {
-					nextCreature = b[0] + (b[1] - 1);
+					nextCreature = creatureType[0] + (creatureType[1] - 1);
+					this.lastViewedCreature = nextCreature;
 					this.showCreature(nextCreature, this.selectedPlayer);
 					return;
 				}
 			}
 
-			this.selectedCreature = b[0] + (b[1] - 1);
+			this.selectedCreature = creatureType[0] + (creatureType[1] - 1);
 		}
 
 		this.gridSelectPrevious();
@@ -2406,16 +2453,14 @@ export class UI {
 					return;
 				}
 				let creaID = $j(e.currentTarget).attr('creatureid') - 0;
+
+				/* If showing the active player's Dark Priest, open the dash using another
+				method which restores any previously selected creature for materialization. */
 				if (
 					game.creatures[creaID].isDarkPriest() &&
-					game.creatures[creaID].player.id == game.activeCreature.player.id &&
-					!game.activeCreature.abilities[3].used
+					game.creatures[creaID].id === game.activeCreature.id
 				) {
-					this.showCreature(
-						game.creatures[creaID].type,
-						game.creatures[creaID].player.id,
-						'portrait',
-					);
+					this.toggleDash();
 				} else {
 					this.showCreature(
 						game.creatures[creaID].type,
@@ -2484,12 +2529,12 @@ export class UI {
 				);
 
 				let text;
-				if (creature.stats.frozen) {
-					text = 'Frozen';
+				if (creature.isFrozen()) {
+					text = creature.isInCryostasis() ? 'Cryostasis' : 'Frozen';
 					textElement.css({
 						background: 'darkturquoise',
 					});
-				} else if (creature.dizzy) {
+				} else if (creature.isDizzy()) {
 					text = 'Dizzy';
 					textElement.css({
 						background: 'saddlebrown',
@@ -2498,16 +2543,16 @@ export class UI {
 					text = 'Sickened';
 				} else if (creature.protectedFromFatigue || creature.stats.fatigueImmunity) {
 					text = 'Protected';
-				} else if (creature.endurance > 0) {
-					text = creature.endurance + '/' + creature.stats.endurance;
-				} else if (creature.stats.endurance === 0) {
+				} else if (creature.isFragile()) {
 					text = 'Fragile';
 					// Display message if the creature has first become fragile
 					if (creature.fatigueText !== text) {
 						game.log('%CreatureName' + creature.id + '% has become fragile');
 					}
-				} else {
+				} else if (creature.isFatigued()) {
 					text = 'Fatigued';
+				} else {
+					text = creature.endurance + '/' + creature.stats.endurance;
 				}
 
 				if (creature.isDarkPriest()) {
@@ -2516,7 +2561,7 @@ export class UI {
 				}
 
 				textElement.text(text);
-				this.fatigueText = text;
+				creature.fatigueText = text;
 			}
 		});
 	}
@@ -2535,5 +2580,43 @@ export class UI {
 		$j('#loader').addClass('hide');
 		const queueElements = this.$queue.children();
 		[...queueElements].forEach((queueElement) => queueElement.remove());
+	}
+
+	/**
+	 * Make the user confirm attempts to navigate away (refresh, back button, close
+	 * tab, etc) to prevent accidentally ending the game.
+	 *
+	 * webpack-dev-server reloads in the development environment will bypass this check.
+	 */
+	confirmWindowUnload() {
+		this.ignoreNextConfirmUnload = false;
+
+		const confirmUnload = (event) => {
+			const confirmation =
+				'A game is in progress and cannot be restored, are you sure you want to leave?';
+
+			if (this.ignoreNextConfirmUnload) {
+				delete event['returnValue'];
+				return;
+			}
+
+			// https://developer.mozilla.org/en-US/docs/Web/API/WindowEventHandlers/onbeforeunload#example
+			event.preventDefault();
+			event.returnValue = confirmation;
+			return confirmation;
+		};
+
+		window.addEventListener('beforeunload', confirmUnload);
+
+		// If running in webpack-dev-server, allow Live Reload events to bypass this check.
+		if (process.env.NODE_ENV === 'development') {
+			// https://stackoverflow.com/a/61579190/1414008
+			window.addEventListener('message', ({ data: { type } }) => {
+				if (type === 'webpackInvalid') {
+					this.ignoreNextConfirmUnload = true;
+					window.location.reload();
+				}
+			});
+		}
 	}
 }

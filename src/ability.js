@@ -1,6 +1,6 @@
 import * as $j from 'jquery';
 import { Damage } from './damage';
-import { Hex } from './utility/hex';
+import { Direction, Hex } from './utility/hex';
 import { Creature } from './creature';
 import { isTeam, Team } from './utility/team';
 import * as arrayUtils from './utility/arrayUtils';
@@ -21,6 +21,7 @@ export class Ability {
 		this.timesUsedThisTurn = 0;
 		this.token = 0;
 		this.upgraded = false;
+		this.title = '';
 
 		let data = game.retrieveCreatureStats(creature.type);
 		$j.extend(true, this, game.abilities[data.id][abilityID], data.ability_info[abilityID]);
@@ -129,7 +130,6 @@ export class Ability {
 			return;
 		}
 
-		game.grid.clearHexViewAlterations();
 		game.clearOncePerDamageChain();
 		game.activeCreature.hint(this.title, 'msg_effects');
 
@@ -321,13 +321,22 @@ export class Ability {
 	 * @return {void}
 	 */
 	animation2(o) {
-		let game = this.game,
-			opt = $j.extend({ callback: function () {}, arg: {} }, o),
-			args = opt.arg,
-			activateAbility = () => {
-				this.activate(args[0], args[1]);
-				this.postActivate();
-			};
+		const game = this.game;
+		const opt = $j.extend(
+			{
+				callback: function () {
+					// Default no-op function.
+				},
+				arg: {},
+			},
+			o,
+		);
+		const args = opt.arg;
+		const activateAbility = () => {
+			const extra = args[2];
+			this.activate(args[0], args[1], extra);
+			this.postActivate();
+		};
 
 		game.freezedInput = true;
 
@@ -545,23 +554,29 @@ export class Ability {
 	/**
 	 * Return whether there is at least one creature in the hexes that satisfies
 	 * various conditions, e.g. team.
-	 * @param {Array} hexes Array of hexes
-	 * @param {Object} o Options
-	 * @return {boolean} At least one target.
+	 *
+	 * @param {Array} hexes Array of hexes to test.
+	 * @param {Object} o
+	 * @return {boolean} At least one valid target?
 	 */
 	atLeastOneTarget(hexes, o) {
-		let defaultOpt = {
-			team: Team.both,
+		const defaultOpt = {
+			team: Team.Both,
 			optTest: function () {
 				return true;
 			},
 		};
 
-		o = $j.extend(defaultOpt, o);
-		for (let i = 0, len = hexes.length; i < len; i++) {
-			let creature = hexes[i].creature;
+		const options = { ...defaultOpt, ...o };
 
-			if (!creature || !isTeam(this.creature, creature, o.team) || !o.optTest(creature)) {
+		for (let i = 0, len = hexes.length; i < len; i++) {
+			const creature = hexes[i].creature;
+
+			if (
+				!creature ||
+				!isTeam(this.creature, creature, options.team) ||
+				!options.optTest(creature)
+			) {
 				continue;
 			}
 
@@ -706,13 +721,16 @@ export class Ability {
 
 	/**
 	 * Test and get directions where there are valid targets in directions, using
-	 * direction queries
+	 * direction queries.
+	 *
 	 * @param {Object} o Dict of arguments for direction query
+	 * @param {function} o.optTest Callback function receiving the target creature, for final filtering.
+	 * @param {function} o.minDistance Target must be at least this distance away to be valid.
 	 * @return {Array} array of ints, length of total directions, 1 if direction valid else 0
 	 */
 	testDirections(o) {
 		let defaultOpt = {
-			team: Team.enemy,
+			team: Team.Enemy,
 			id: this.creature.id,
 			flipped: this.creature.player.flipped,
 			x: this.creature.x,
@@ -721,12 +739,17 @@ export class Ability {
 			includeCreature: true,
 			stopOnCreature: true,
 			distance: 0,
+			minDistance: 0,
 			sourceCreature: undefined,
+			optTest: function () {
+				return true;
+			},
 		};
 
 		o = $j.extend(defaultOpt, o);
 
 		let outDirections = [];
+		let deadzone = [];
 
 		for (let i = 0, len = o.directions.length; i < len; i++) {
 			if (!o.directions[i]) {
@@ -737,7 +760,7 @@ export class Ability {
 			let fx = 0;
 
 			if (o.sourceCreature instanceof Creature) {
-				let flipped = o.sourceCreature.player.flipped;
+				const flipped = o.sourceCreature.player.flipped;
 
 				if ((!flipped && i > 2) || (flipped && i < 3)) {
 					fx = -1 * (o.sourceCreature.size - 1);
@@ -750,16 +773,34 @@ export class Ability {
 				dir = dir.slice(0, o.distance + 1);
 			}
 
+			if (o.minDistance > 0) {
+				// The untargetable area between the unit and the minimum distance.
+				deadzone = dir.slice(0, o.minDistance);
+				deadzone = arrayUtils.filterCreature(deadzone, o.includeCreature, o.stopOnCreature, o.id);
+
+				dir = dir.slice(
+					// 1 greater than expected to exclude current (source creature) hex.
+					o.minDistance,
+				);
+			}
+
 			dir = arrayUtils.filterCreature(dir, o.includeCreature, o.stopOnCreature, o.id);
-			let isValid = this.atLeastOneTarget(dir, o);
-			outDirections.push(isValid ? 1 : 0);
+
+			/* If the ability has a minimum distance and units should block LOS, this
+			direction cannot be used if there is a unit in the deadzone. */
+			const blockingUnitInDeadzone =
+				o.stopOnCreature && deadzone.length && this.atLeastOneTarget(deadzone, o);
+			const targetInDirection = this.atLeastOneTarget(dir, o);
+			const isValidDirection = targetInDirection && !blockingUnitInDeadzone;
+			outDirections.push(isValidDirection ? 1 : 0);
 		}
 
 		return outDirections;
 	}
 
 	/**
-	 * Test whether there are valid targets in directions, using direction queries
+	 * Test whether there are valid targets in directions, using direction queries.
+	 *
 	 * @param {Object} o Dict of arguments for direction query.
 	 * @return {boolean} true if valid targets in at least one direction, else false
 	 */
@@ -793,5 +834,21 @@ export class Ability {
 	 */
 	movementType() {
 		return undefined;
+	}
+
+	/**
+	 * Determine if the ability is being used in the opposite direction to the creature's
+	 * natural facing direction.
+	 *
+	 * i.e. red player's right facing Headless is targeting a creature to its left.
+	 *
+	 * @param {Direction} direction The direction the ability is being used.
+	 * @returns {boolean} The ability is being used backwards.
+	 */
+	isTargetingBackwards(direction) {
+		return (
+			(this.creature.player.flipped && direction < Direction.DownLeft) ||
+			(!this.creature.player.flipped && direction > Direction.DownRight)
+		);
 	}
 }

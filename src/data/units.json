@@ -540,7 +540,7 @@
 	{
 		"id": 6,
 		"name": "Vehemoth",
-		"playable": false,
+		"playable": true,
 		"level": 7,
 		"realm": "S",
 		"size": 3,
@@ -637,7 +637,11 @@
 				],
 				"damages": {
 					"pierce": 20,
-					"frost": 3
+					"frost": 0
+				},
+				"bonus_damages": {
+					"frost": 3,
+					"pierce": 2
 				},
 				"costs": {
 					"energy": 35
@@ -696,15 +700,19 @@
 			},
 			{
 				"title": "Fiery Touch",
-				"desc": "Scratches and burns a distant enemy. This attack has 2 hexagons extra reach.",
-				"info": "10 slash + 10 burn damage for each hit.",
-				"upgrade": "Double range for the burn hit.",
+				"desc": "Scratches and burns a distant enemy up to 3 hexagons away.",
+				"info": "15 slash + 15 burn damage each attack.",
+				"upgrade": "6 range for the burn damage.",
 				"damages": {
-					"slash": 10,
-					"burn": 10
+					"slash": 15,
+					"burn": 15
 				},
 				"costs": {
 					"energy": 30
+				},
+				"range": {
+					"regular": 3,
+					"upgraded": 6
 				}
 			},
 			{
@@ -2644,7 +2652,7 @@
 				"title": "Battle Cry",
 				"desc": "Roars at the beginning of the turn if took any damage in previous round.",
 				"info": "30 sonic damage to adjacent units.",
-				"upgrade": "Only roars if foes are nearby."
+				"upgrade": "Only roars if nearby foes."
 			},
 			{
 				"title": "Executioner Axe",
@@ -3134,6 +3142,11 @@
 				],
 				"costs": {
 					"energy": 20
+				},
+				"range": {
+					"minimum": 3,
+					"regular": 6,
+					"upgraded": 8
 				}
 			},
 			{
@@ -3212,7 +3225,12 @@
 				},
 				"costs": {
 					"energy": 24
-				}
+				},
+				"effects": [
+					{
+						"special": "10 %pierce% if moving"
+					}
+				]
 			},
 			{
 				"title": "War Horn",

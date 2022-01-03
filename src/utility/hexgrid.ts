@@ -1,71 +1,159 @@
 import * as $j from 'jquery';
-import { Hex } from './hex';
+import { Direction, Hex } from './hex';
 import { Creature } from '../creature';
 import { search } from './pathfinding';
 import * as matrices from './matrices';
 import { Team, isTeam } from './team';
 import * as arrayUtils from './arrayUtils';
+import Game from '../game';
+import { Trap } from './trap';
+interface QueryOptions {
+	/**
+	 * Target team.
+	 */
+	team: Team;
 
-/* HexGrid Class
- *
- * Object containing grid and hexagons DOM element and methods concerning the whole grid
+	/**
+	 * Disable a choice if it does not contain a creature matching the team argument.
+	 */
+	requireCreature: boolean;
+	id: number;
+	flipped: boolean;
+	x: number;
+	y: number;
+	hexesDashed: Hex[];
+	shrunkenHexes: Hex[];
+	directions: number[];
+	includeCreature: boolean;
+	stopOnCreature: boolean;
+
+	/**
+	 * If defined, maximum distance of query in hexes.
+	 */
+	distance: number;
+
+	/**
+	 * If defined, minimum distance of query, 1 = 1 hex gap required.
+	 */
+	minDistance: number;
+
+	isDirectionsQuery: boolean;
+
+	/**
+	 * After this distance, the direction choice will be be visualised by shrunken hexes.
+	 * This visual state represents the ability having its effectiveness being reduced
+	 * in some way (falling off).
+	 */
+	distanceFalloff: number;
+
+	/**
+	 * If a choice line stops on a creature via @param stopOnCreature, display
+	 * 	dashed hexes after the creature up until the next obstacle
+	 */
+	dashedHexesAfterCreatureStop: boolean;
+
+	/**
+	 * Limit the length of dashed hexes added by @param dashedHexesAfterCreatureStop
+	 */
+	dashedHexesDistance: number;
+
+	sourceCreature: Creature;
+	choices: Hex[][];
+
+	/**
+	 * Object given to the events function (to easily pass variable for these function).
+	 */
+	arg: any;
+
+	optTest: () => boolean;
+
+	/**
+	 * Function applied when clicking on one of the available hexes.
+	 */
+	fnOnSelect: () => void;
+
+	/**
+	 * Function applied when clicking again on the same hex.
+	 */
+	fnOnConfirm: () => void;
+
+	/**
+	 * Function applied when clicking a non reachable hex
+	 */
+	fnOnCancel: () => void;
+}
+
+/**
+ * Object containing grid and methods concerning the whole grid.
  * Should only have one instance during the game.
- *
  */
 export class HexGrid {
-	/* Attributes
-	 *
-	 * NOTE : attributes and variables starting with $ are jquery element
-	 * and jquery function can be called dirrectly from them.
-	 *
-	 * // Jquery attributes
-	 * $display : 		Grid container
-	 * $inpthexesW : 	Input Hexagons container
-	 * $disphexesW : 	Display Hexagons container
-	 * $overhexesW : 	Overlay Hexagons container
-	 * $allInptHex : 	Shortcut to all input hexagons DOM elements (for input events)
-	 * $allDispHex : 	Shortcut to all display hexagons DOM elements (to change style of hexagons)
-	 *
-	 * // Normal attributes
-	 * hexes : 				Array : 	Contain all hexes in row arrays (hexes[y][x])
-	 * lastClickedHex : 	Hex : 		Last hex clicked!
+	game: Game;
+
+	/**
+	 * Contain all hexes in row arrays (hexes[y][x]).
 	 */
+	hexes: Hex[][];
+
+	traps: Trap[];
+	allhexes: Hex[];
+
+	/**
+	 * Last hex clicked!
+	 */
+	lastClickedHex: Hex;
+
+	display: Phaser.Sprite;
+	gridGroup: Phaser.Group;
+	trapGroup: Phaser.Group;
+	hexesGroup: Phaser.Group;
+	displayHexesGroup: Phaser.Group;
+	overlayHexesGroup: Phaser.Group;
+	inputHexesGroup: Phaser.Group;
+	dropGroup: Phaser.Group;
+	creatureGroup: Phaser.Group;
+	trapOverGroup: Phaser.Group;
+	selectedHex: Hex;
+	_executionMode: boolean;
+	materialize_overlay: any;
+	lastQueryOpt: any;
 
 	/* Constructor
 	 *
 	 * Create attributes and populate JS grid with Hex objects
 	 */
-	constructor(opts, game) {
-		let defaultOpt = {
+	constructor(opts, game: Game) {
+		const defaultOpt = {
 			nbrRow: 9,
 			nbrhexesPerRow: 16,
 			firstRowFull: false,
 		};
 
-		opts = $j.extend(defaultOpt, opts);
+		opts = { ...defaultOpt, ...opts };
 
 		this.game = game;
 		this.hexes = []; // Hex Array
 		this.traps = []; // Traps Array
 		this.allhexes = []; // All hexes
-		this.lastClickedHex = []; // Array of hexagons containing last calculated pathfinding
+		this.lastClickedHex = undefined;
 
-		this.display = game.Phaser.add.group(undefined, 'displayGrp');
+		this.display = game.Phaser.add.group(undefined, 'displayGroup');
 		this.display.x = 230;
 		this.display.y = 380;
 
-		this.gridGroup = game.Phaser.add.group(this.display, 'gridGrp');
+		this.gridGroup = game.Phaser.add.group(this.display, 'gridGroup');
 		this.gridGroup.scale.set(1, 0.75);
 
 		this.trapGroup = game.Phaser.add.group(this.gridGroup, 'trapGrp');
-		this.disphexesGroup = game.Phaser.add.group(this.gridGroup, 'disphexesGrp');
-		this.overhexesGroup = game.Phaser.add.group(this.gridGroup, 'overhexesGrp');
+		this.hexesGroup = game.Phaser.add.group(this.gridGroup, 'hexesGroup');
+		this.displayHexesGroup = game.Phaser.add.group(this.gridGroup, 'displayHexesGroup');
+		this.overlayHexesGroup = game.Phaser.add.group(this.gridGroup, 'overlayHexesGroup');
+		this.inputHexesGroup = game.Phaser.add.group(this.gridGroup, 'inputHexesGroup');
 		this.dropGroup = game.Phaser.add.group(this.display, 'dropGrp');
 		this.creatureGroup = game.Phaser.add.group(this.display, 'creaturesGrp');
 		// Parts of traps displayed over creatures
 		this.trapOverGroup = game.Phaser.add.group(this.display, 'trapOverGrp');
 		this.trapOverGroup.scale.set(1, 0.75);
-		this.inpthexesGroup = game.Phaser.add.group(this.gridGroup, 'inpthexesGrp');
 
 		// Populate grid
 		for (let row = 0; row < opts.nbrRow; row++) {
@@ -85,7 +173,7 @@ export class HexGrid {
 		this.selectedHex = this.hexes[0][0];
 
 		// If true, clicking a monster will instantly kill it.
-		this.executionMode = false;
+		this._executionMode = false;
 
 		// Events
 		this.game.signals.metaPowers.add(this.handleMetaPowerEvent, this);
@@ -93,36 +181,36 @@ export class HexGrid {
 
 	handleMetaPowerEvent(message, payload) {
 		if (message === 'toggleExecuteMonster') {
-			this.executionMode = payload;
+			this._executionMode = payload;
 		}
 	}
 
 	querySelf(o) {
-		let game = this.game,
-			defaultOpt = {
-				fnOnConfirm: () => {},
-				fnOnSelect: (creature) => {
-					creature.hexagons.forEach((hex) => {
-						hex.overlayVisualState('creature selected player' + hex.creature.team);
-					});
-				},
-				fnOnCancel: () => {
-					this.game.activeCreature.queryMove();
-				},
-				args: {},
-				confirmText: 'Confirm',
-				id: game.activeCreature.id,
-			};
+		const game = this.game;
+		const defaultOpt = {
+			fnOnConfirm: () => {
+				// No-op function.
+			},
+			fnOnSelect: (creature: Creature) => {
+				creature.hexagons.forEach((hex) => {
+					hex.overlayVisualState('creature selected player' + hex.creature.team);
+				});
+			},
+			fnOnCancel: () => {
+				this.game.activeCreature.queryMove();
+			},
+			args: {},
+			confirmText: 'Confirm',
+			id: game.activeCreature.id,
+		};
 
-		o = $j.extend(defaultOpt, o);
-
-		//o.fnOnConfirm(game.activeCreature,o.args); // Auto-confirm
+		o = { ...defaultOpt, ...o };
 
 		game.activeCreature.hint(o.confirmText, 'confirm');
 
 		this.queryHexes({
 			fnOnConfirm: (hex, args) => {
-				args.opt.fnOnConfirm(game.activeCreature, args.opt.args);
+				args.opt.fnOnConfirm(game.activeCreature, args.opt.args, { queryOptions: o });
 			},
 			fnOnSelect: (hex, args) => {
 				args.opt.fnOnSelect(game.activeCreature, args.opt.args);
@@ -139,137 +227,214 @@ export class HexGrid {
 		});
 	}
 
-	/* queryDirection(o)
+	/**
+	 * Shortcut to queryChoice with specific directions.
 	 *
-	 * Shortcut to queryChoice with specific directions
-	 *
-	 * fnOnSelect : 		Function : 	Function applied when clicking on one of the available hexes.
-	 * fnOnConfirm : 		Function : 	Function applied when clicking again on the same hex.
-	 * fnOnCancel : 		Function : 	Function applied when clicking a non reachable hex
-	 * team : 				Team
-	 * requireCreature : 	Boolean : 	Disable a choice if it does not contain a creature matching the team argument
-	 * distance :			Integer :	if defined, maximum distance of query in hexes
-	 * minDistance :		Integer :	if defined, minimum distance of query, 1 = 1 hex gap required
-	 * args : 				Object : 	Object given to the events function (to easily pass variable for these function)
+	 * @param o
 	 */
-	queryDirection(o) {
-		// This is alway true
+	queryDirection(o: QueryOptions) {
 		o.isDirectionsQuery = true;
 		o = this.getDirectionChoices(o);
 		this.queryChoice(o);
 	}
 
 	/**
-	 * Get an object that contains the choices and hexesDashed for a direction
-	 * query.
-	 * @param {Object} o ?
-	 * @returns {Object} ?
+	 * Get an object that contains the choices and hexesDashed for a direction query.
+	 *
+	 * @param o Options.
+	 * @returns Altered options.
 	 */
-	getDirectionChoices(o) {
-		let game = this.game,
-			defaultOpt = {
-				team: Team.enemy,
-				requireCreature: true,
-				id: 0,
-				flipped: false,
-				x: 0,
-				y: 0,
-				hexesDashed: [],
-				directions: [1, 1, 1, 1, 1, 1],
-				includeCreature: true,
-				stopOnCreature: true,
-				dashedHexesAfterCreatureStop: true,
-				distance: 0,
-				minDistance: 0,
-				sourceCreature: undefined,
-			};
+	getDirectionChoices(o: QueryOptions) {
+		const defaultOpt = {
+			team: Team.Enemy,
+			requireCreature: true,
+			id: 0,
+			flipped: false,
+			x: 0,
+			y: 0,
+			hexesDashed: [],
+			shrunkenHexes: [],
+			directions: [1, 1, 1, 1, 1, 1],
+			includeCreature: true,
+			stopOnCreature: true,
+			distance: 0,
+			minDistance: 0,
+			distanceFalloff: 0,
+			dashedHexesAfterCreatureStop: true,
+			dashedHexesDistance: 0,
+			sourceCreature: undefined,
+			choices: [],
+			optTest: () => true,
+		};
 
-		o = $j.extend(defaultOpt, o);
+		const options = { ...defaultOpt, ...o };
 
 		// Clean Direction
 		this.forEachHex((hex) => {
 			hex.direction = -1;
 		});
 
-		o.choices = [];
-		for (let i = 0, len = o.directions.length; i < len; i++) {
-			if (o.directions[i]) {
-				let dir = [],
-					fx = 0;
+		options.choices = [];
 
-				if (o.sourceCreature instanceof Creature) {
-					let flipped = o.sourceCreature.player.flipped;
-					if ((!flipped && i > 2) || (flipped && i < 3)) {
-						fx = -1 * (o.sourceCreature.size - 1);
-					}
+		for (let i = 0, len = options.directions.length; i < len; i++) {
+			if (!options.directions[i]) {
+				continue;
+			}
+
+			const direction = i as Direction;
+			let dir: Hex[] = [];
+			let fx = 0;
+
+			if (options.sourceCreature instanceof Creature) {
+				const flipped = options.sourceCreature.player.flipped;
+				if (
+					(!flipped && direction > Direction.DownRight) ||
+					(flipped && direction < Direction.DownLeft)
+				) {
+					fx = -1 * (options.sourceCreature.size - 1);
 				}
+			}
 
-				dir = this.getHexLine(o.x + fx, o.y, i, o.flipped);
+			dir = this.getHexLine(options.x + fx, options.y, direction, options.flipped);
 
-				// Limit hexes based on distance
-				if (o.distance > 0) {
-					dir = dir.slice(0, o.distance + 1);
+			// Limit hexes based on distance
+			if (options.distance > 0) {
+				dir = dir.slice(0, options.distance + 1);
+			}
+
+			// The untargetable area between the unit and the minimum distance.
+			let deadzone = [];
+			if (options.minDistance > 0) {
+				deadzone = dir.slice(0, options.minDistance);
+				deadzone = arrayUtils.filterCreature(
+					deadzone,
+					options.includeCreature,
+					options.stopOnCreature,
+					options.id,
+				);
+
+				dir = dir.slice(
+					// 1 greater than expected to exclude current (source creature) hex.
+					options.minDistance,
+				);
+			}
+
+			/* If the ability has a minimum distance and units should block LOS, this
+				direction cannot be used if there is a unit in the deadzone. */
+			if (options.stopOnCreature && deadzone.length && this.atLeastOneTarget(deadzone, options)) {
+				continue;
+			}
+
+			let hexesDashed = [];
+			dir.forEach((item) => {
+				item.direction = options.flipped ? 5 - direction : direction;
+
+				if (options.stopOnCreature && options.dashedHexesAfterCreatureStop) {
+					hexesDashed.push(item);
 				}
+			});
 
-				if (o.minDistance > 0) {
-					// Exclude current hex
-					dir = dir.slice(o.minDistance + 1);
+			arrayUtils.filterCreature(dir, options.includeCreature, options.stopOnCreature, options.id);
+
+			if (dir.length === 0) {
+				continue;
+			}
+
+			if (options.requireCreature && !this.atLeastOneTarget(dir, options)) {
+				continue;
+			}
+
+			if (
+				options.stopOnCreature &&
+				options.includeCreature &&
+				// Only straight direction.
+				(direction === Direction.Right || direction === Direction.Left)
+			) {
+				if (arrayUtils.last(dir).creature instanceof Creature) {
+					// Add all creature hexes.
+					const creature = arrayUtils.last(dir).creature;
+					dir.pop();
+					dir = arrayUtils.sortByDirection(dir.concat(creature.hexagons), direction);
 				}
+			}
 
-				let hexesDashed = [];
-				dir.forEach((item) => {
-					item.direction = o.flipped ? 5 - i : i;
-					if (o.stopOnCreature && o.dashedHexesAfterCreatureStop) {
-						hexesDashed.push(item);
-					}
-				});
+			dir.forEach((item) => {
+				arrayUtils.removePos(hexesDashed, item);
+			});
 
-				arrayUtils.filterCreature(dir, o.includeCreature, o.stopOnCreature, o.id);
+			/* For some reason hexesDashed can contain source creature hexagons. Rather
+				than risk changing that logic, create a new list without the source creature. */
+			const hexesDashedWithoutSourceCreature = arrayUtils.filterCreature(
+				hexesDashed,
+				true,
+				false,
+				options.id,
+			);
 
-				if (dir.length === 0) {
-					continue;
+			if (hexesDashed.length && options.dashedHexesDistance) {
+				hexesDashed = hexesDashedWithoutSourceCreature.slice(0, options.dashedHexesDistance);
+			}
+
+			let shrunkenHexes: Hex[] = [];
+			if (options.distanceFalloff) {
+				/* Shrunken hexes do not replace existing hexes, instead they modify them.
+					With that in mind, regular AND dashed hexes after the falloff distance
+					can be shrunk. */
+				shrunkenHexes = [...dir, ...hexesDashedWithoutSourceCreature].slice(
+					options.distanceFalloff,
+				);
+			}
+
+			options.hexesDashed = [...options.hexesDashed, ...hexesDashed];
+			options.shrunkenHexes = [...options.shrunkenHexes, ...shrunkenHexes];
+			options.choices.push(dir);
+		}
+
+		return options;
+	}
+
+	/**
+	 * Return whether there is at least one creature in the hexes that satisfies
+	 * various conditions, e.g. team.
+	 *
+	 * @param {} dir ?
+	 * @param {Object} o
+	 * @return {boolean} At least one valid target.
+	 */
+	atLeastOneTarget(dir, o) {
+		const defaultOpt = {
+			team: Team.Both,
+			optTest: function () {
+				return true;
+			},
+		};
+
+		const options = { ...defaultOpt, ...o };
+
+		let validChoice = false;
+
+		// Search each hex for a creature that matches the team argument.
+		for (let j = 0; j < dir.length; j++) {
+			const targetCreature = dir[j].creature;
+
+			if (targetCreature instanceof Creature && targetCreature.id !== options.id) {
+				const sourceCreature = this.game.creatures[options.id];
+
+				if (
+					isTeam(sourceCreature, targetCreature, options.team) &&
+					options.optTest(targetCreature)
+				) {
+					validChoice = true;
+					break;
 				}
-
-				if (o.requireCreature) {
-					let validChoice = false;
-					// Search each hex for a creature that matches the team argument
-					for (let j = 0; j < dir.length; j++) {
-						let creaTarget = dir[j].creature;
-
-						if (creaTarget instanceof Creature && creaTarget.id !== o.id) {
-							let creaSource = game.creatures[o.id];
-							if (isTeam(creaSource, creaTarget, o.team)) {
-								validChoice = true;
-								break;
-							}
-						}
-					}
-
-					if (!validChoice) {
-						continue;
-					}
-				}
-
-				if (o.stopOnCreature && o.includeCreature && (i === 1 || i === 4)) {
-					// Only straight direction
-					if (arrayUtils.last(dir).creature instanceof Creature) {
-						// Add full creature
-						let creature = arrayUtils.last(dir).creature;
-						dir.pop();
-						dir = dir.concat(creature.hexagons);
-					}
-				}
-
-				dir.forEach((item) => {
-					arrayUtils.removePos(hexesDashed, item);
-				});
-
-				o.hexesDashed = o.hexesDashed.concat(hexesDashed);
-				o.choices.push(dir);
 			}
 		}
 
-		return o;
+		if (validChoice) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/*
@@ -282,35 +447,36 @@ export class HexGrid {
 	 * args : 				Object : 	Object given to the events function (to easily pass variable for these function)
 	 */
 	queryChoice(o) {
-		let game = this.game,
-			defaultOpt = {
-				fnOnConfirm: () => {
-					game.activeCreature.queryMove();
-				},
-				fnOnSelect: (choice) => {
-					choice.forEach((item) => {
-						if (item.creature instanceof Creature) {
-							item.displayVisualState('creature selected player' + item.creature.team);
-						} else {
-							item.displayVisualState('adj');
-						}
-					});
-				},
-				fnOnCancel: () => {
-					game.activeCreature.queryMove();
-				},
-				team: Team.enemy,
-				requireCreature: 1,
-				id: 0,
-				args: {},
-				flipped: false,
-				choices: [],
-				hexesDashed: [],
-				isDirectionsQuery: false,
-				hideNonTarget: true,
-			};
+		const game = this.game;
+		const defaultOpt = {
+			fnOnConfirm: () => {
+				game.activeCreature.queryMove();
+			},
+			fnOnSelect: (choice) => {
+				choice.forEach((item) => {
+					if (item.creature instanceof Creature) {
+						item.displayVisualState('creature selected player' + item.creature.team);
+					} else {
+						item.displayVisualState('adj');
+					}
+				});
+			},
+			fnOnCancel: () => {
+				game.activeCreature.queryMove();
+			},
+			team: Team.Enemy,
+			requireCreature: 1,
+			id: 0,
+			args: {},
+			flipped: false,
+			choices: [],
+			hexesDashed: [],
+			shrunkenHexes: [],
+			isDirectionsQuery: false,
+			hideNonTarget: true,
+		};
 
-		o = $j.extend(defaultOpt, o);
+		o = { ...defaultOpt, ...o };
 
 		let hexes = [];
 		for (let i = 0, len = o.choices.length; i < len; i++) {
@@ -321,8 +487,8 @@ export class HexGrid {
 				// Search each hex for a creature that matches the team argument
 				for (let j = 0; j < o.choices[i].length; j++) {
 					if (o.choices[i][j].creature instanceof Creature && o.choices[i][j].creature != o.id) {
-						let creaSource = game.creatures[o.id],
-							creaTarget = o.choices[i][j].creature;
+						const creaSource = game.creatures[o.id];
+						const creaTarget = o.choices[i][j].creature;
 
 						if (isTeam(creaSource, creaTarget, o.team)) {
 							validChoice = true;
@@ -354,7 +520,7 @@ export class HexGrid {
 					for (let j = 0, lenj = args.opt.choices[i].length; j < lenj; j++) {
 						if (hex.pos == args.opt.choices[i][j].pos) {
 							args.opt.args.direction = hex.direction;
-							args.opt.fnOnConfirm(args.opt.choices[i], args.opt.args);
+							args.opt.fnOnConfirm(args.opt.choices[i], args.opt.args, { queryOptions: o });
 							return;
 						}
 					}
@@ -368,7 +534,7 @@ export class HexGrid {
 							args.opt.args.direction = hex.direction;
 							args.opt.args.hex = hex;
 							args.opt.args.choiceIndex = i;
-							args.opt.fnOnSelect(args.opt.choices[i], args.opt.args);
+							args.opt.fnOnSelect(args.opt.choices[i], args.opt.args, { queryOptions: o });
 							return;
 						}
 					}
@@ -380,6 +546,7 @@ export class HexGrid {
 			},
 			hexes: hexes,
 			hexesDashed: o.hexesDashed,
+			shrunkenHexes: o.shrunkenHexes,
 			flipped: o.flipped,
 			hideNonTarget: o.hideNonTarget,
 			id: o.id,
@@ -387,59 +554,98 @@ export class HexGrid {
 		});
 	}
 
-	/* queryCreature(o)
+	/**
 	 *
-	 * fnOnSelect : 	Function : 	Function applied when clicking on one of the available hexes.
-	 * fnOnConfirm : 	Function : 	Function applied when clicking again on the same hex.
-	 * fnOnCancel : 	Function : 	Function applied when clicking a non reachable hex
-	 * team : 			Team
-	 * id : 			Integer : 	Creature ID
-	 * args : 			Object : 	Object given to the events function (to easily pass variable for these function)
+	 * @param {object} o Object given to the events function (to easily pass variable for these function)
+	 * @param {function} o.fnOnSelect Function applied when clicking on one of the available hexes.
+	 * @param {function} o.fnOnConfirm Function applied when clicking again on the same hex.
+	 * @param {function} o.fnOnCancel Function applied when clicking a non reachable hex.
+	 * @param {Team} o.team The targetable team.
+	 * @param {number} o.id Creature ID
+	 * @param {boolean} o.replaceEmptyHexesWithDashed Replace all non targetable, empty hexes with dashed hexes.
+	 * 	o.hexesDashed will override this option.
 	 */
 	queryCreature(o) {
-		let game = this.game,
-			defaultOpt = {
-				fnOnConfirm: () => {
-					game.activeCreature.queryMove();
-				},
-				fnOnSelect: (creature) => {
-					creature.tracePosition({
-						overlayClass: 'creature selected player' + creature.team,
-					});
-				},
-				fnOnCancel: () => {
-					game.activeCreature.queryMove();
-				},
-				optTest: () => true,
-				args: {},
-				hexes: [],
-				hexesDashed: [],
-				flipped: false,
-				id: 0,
-				team: Team.enemy,
-			};
+		const game = this.game;
+		const defaultOpt = {
+			fnOnConfirm: () => {
+				game.activeCreature.queryMove();
+			},
+			fnOnSelect: (creature) => {
+				creature.tracePosition({
+					overlayClass: 'creature selected player' + creature.team,
+				});
+			},
+			fnOnCancel: () => {
+				game.activeCreature.queryMove();
+			},
+			optTest: () => true,
+			args: {},
+			hexes: [],
+			hexesDashed: [],
+			flipped: false,
+			id: 0,
+			team: Team.Enemy,
+			replaceEmptyHexesWithDashed: false,
+		};
 
-		o = $j.extend(defaultOpt, o);
+		o = { ...defaultOpt, ...o };
 
-		// Exclude everything but the creatures
-		o.hexes = o.hexes.filter((hex) => {
-			if (hex.creature instanceof Creature && hex.creature.id != o.id) {
-				if (!o.optTest(hex.creature)) {
-					return false;
+		/* Divide hexes into:
+		- containing valid targets
+		- empty (no possible target)
+		Hexes containing invalid targets (wrong team, o.optTest, etc) are discard. */
+		const { targetHexes, emptyHexes } = o.hexes.reduce(
+			(acc, hex) => {
+				const sourceCreature = game.creatures[o.id];
+				const targetCreature = hex.creature;
+
+				const acceptTargetHex = () => {
+					return {
+						...acc,
+						targetHexes: [...acc.targetHexes, hex],
+					};
+				};
+
+				const acceptEmptyHex = () => {
+					return {
+						...acc,
+						emptyHexes: [...acc.emptyHexes, hex],
+					};
+				};
+
+				const discardHex = () => {
+					return acc;
+				};
+
+				if (!targetCreature) {
+					return acceptEmptyHex();
 				}
 
-				let creaSource = game.creatures[o.id],
-					creaTarget = hex.creature;
+				if (targetCreature instanceof Creature && targetCreature.id !== o.id) {
+					if (!o.optTest(hex.creature)) {
+						return discardHex();
+					}
 
-				if (isTeam(creaSource, creaTarget, o.team)) {
-					return true;
+					if (isTeam(sourceCreature, targetCreature, o.team)) {
+						return acceptTargetHex();
+					}
 				}
-			}
 
-			return false;
-		});
+				return discardHex();
+			},
+			{ targetHexes: [], emptyHexes: [] },
+		);
+
+		o.hexes = targetHexes;
+
+		if (o.replaceEmptyHexesWithDashed && !o.hexesDashed.length) {
+			o.hexesDashed = emptyHexes;
+		}
 
 		let extended = [];
+		/* Add creature hexes that extend out of the range of the source hexes, so the
+		entire creature can be highlighted. */
 		o.hexes.forEach((hex) => {
 			extended = extended.concat(hex.creature.hexagons);
 		});
@@ -448,11 +654,11 @@ export class HexGrid {
 
 		this.queryHexes({
 			fnOnConfirm: (hex, args) => {
-				let creature = hex.creature;
-				args.opt.fnOnConfirm(creature, args.opt.args);
+				const { creature } = hex;
+				args.opt.fnOnConfirm(creature, args.opt.args, { queryOptions: o });
 			},
 			fnOnSelect: (hex, args) => {
-				let creature = hex.creature;
+				const { creature } = hex;
 				args.opt.fnOnSelect(creature, args.opt.args);
 			},
 			fnOnCancel: o.fnOnCancel,
@@ -481,44 +687,46 @@ export class HexGrid {
 	 * callbackAfterQueryHexes : 		Function : 	empty function to be overridden with custom logic to execute after queryHexes
 	 */
 	queryHexes(o) {
-		let game = this.game,
-			defaultOpt = {
-				fnOnConfirm: () => {
-					game.activeCreature.queryMove();
-				},
-				fnOnSelect: (hex) => {
-					game.activeCreature.faceHex(hex, undefined, true);
-					hex.overlayVisualState('creature selected player' + game.activeCreature.team);
-				},
-				fnOnCancel: () => {
-					game.activeCreature.queryMove();
-				},
-				callbackAfterQueryHexes: () => {
-					// empty function to be overridden with custom logic to execute after queryHexes
-				},
-				args: {},
-				hexes: [],
-				hexesDashed: [],
-				size: 1,
-				id: 0,
-				flipped: false,
-				hideNonTarget: false,
-				ownCreatureHexShade: false,
-				targeting: true,
-				fillHexOnHover: true,
-			};
+		const game = this.game;
+		const defaultOpt = {
+			fnOnConfirm: () => {
+				game.activeCreature.queryMove();
+			},
+			fnOnSelect: (hex: Hex) => {
+				game.activeCreature.faceHex(hex, undefined, true);
+				hex.overlayVisualState('creature selected player' + game.activeCreature.team);
+			},
+			fnOnCancel: () => {
+				game.activeCreature.queryMove();
+			},
+			callbackAfterQueryHexes: () => {
+				// empty function to be overridden with custom logic to execute after queryHexes
+			},
+			args: {},
+			hexes: [],
+			hexesDashed: [],
+			shrunkenHexes: [],
+			size: 1,
+			id: 0,
+			flipped: false,
+			hideNonTarget: false,
+			ownCreatureHexShade: false,
+			targeting: true,
+			fillHexOnHover: true,
+		};
 
-		o = $j.extend(defaultOpt, o);
+		o = { ...defaultOpt, ...o };
 
-		this.lastClickedHex = [];
+		this.lastClickedHex = undefined;
 
 		// Save the last Query
-		this.lastQueryOpt = $j.extend({}, o); // Copy Obj
+		this.lastQueryOpt = { ...o };
 
 		this.updateDisplay();
 		// Block all hexes
 		this.forEachHex((hex) => {
 			hex.unsetReachable();
+
 			if (o.hideNonTarget) {
 				hex.setNotTarget();
 			} else {
@@ -530,15 +738,18 @@ export class HexGrid {
 			} else {
 				hex.cleanDisplayVisualState('dashed');
 			}
+
+			if (o.shrunkenHexes.includes(hex)) {
+				hex.displayVisualState('shrunken');
+			} else {
+				hex.cleanDisplayVisualState('shrunken');
+			}
 		});
 
 		// Cleanup
 		if (this.materialize_overlay) {
 			this.materialize_overlay.alpha = 0;
 		}
-
-		// Creature hex shade
-		//this.$allOverHex.removeClass("ownCreatureHexShade");
 
 		if (!o.ownCreatureHexShade) {
 			if (o.id instanceof Array) {
@@ -577,7 +788,7 @@ export class HexGrid {
 			o.callbackAfterQueryHexes();
 		}
 
-		let onCreatureHover = (creature, queueEffect, hex) => {
+		const onCreatureHover = (creature: Creature, queueEffect, hex: Hex) => {
 			if (creature.isDarkPriest()) {
 				if (creature === game.activeCreature) {
 					if (creature.hasCreaturePlayerGotPlasma()) {
@@ -603,15 +814,15 @@ export class HexGrid {
 		};
 
 		// ONCLICK
-		let onConfirmFn = (hex) => {
+		const onConfirmFn = (hex: Hex) => {
 			// Debugger
-			let y = hex.y,
-				x = hex.x;
+			const y = hex.y;
+			let x = hex.x;
 
 			// Clear display and overlay
 			$j('canvas').css('cursor', 'pointer');
 
-			if (this.executionMode && hex.creature instanceof Creature) {
+			if (this._executionMode && hex.creature instanceof Creature) {
 				hex.creature.die(
 					/* Target creature was killed by this fake "creature". This works because
 					the death logic doesn't actually care about the killing creature, just
@@ -624,7 +835,8 @@ export class HexGrid {
 
 			// Not reachable hex
 			if (!hex.reachable) {
-				this.lastClickedHex = [];
+				this.lastClickedHex = undefined;
+
 				if (hex.creature instanceof Creature) {
 					// If creature
 					onCreatureHover(
@@ -641,8 +853,8 @@ export class HexGrid {
 			} else {
 				// Reachable hex
 				// Offset Pos
-				let offset = o.flipped ? o.size - 1 : 0,
-					mult = o.flipped ? 1 : -1; // For flipped player
+				const offset = o.flipped ? o.size - 1 : 0;
+				const mult = o.flipped ? 1 : -1; // For flipped player
 
 				for (let i = 0, size = o.size; i < size; i++) {
 					// Try next hexagons to see if they fits
@@ -657,24 +869,21 @@ export class HexGrid {
 				}
 
 				hex = this.hexes[y][x]; // New coords
-				let clickedtHex = hex;
+				game.activeCreature.faceHex(hex, undefined, true, true);
 
-				game.activeCreature.faceHex(clickedtHex, undefined, true, true);
-				if (clickedtHex != this.lastClickedHex) {
-					this.lastClickedHex = clickedtHex;
-					// ONCLICK
-					o.fnOnConfirm(clickedtHex, o.args);
-				} else {
-					// ONCONFIRM
-					o.fnOnConfirm(clickedtHex, o.args);
+				if (hex !== this.lastClickedHex) {
+					this.lastClickedHex = hex;
 				}
+
+				o.fnOnConfirm(hex, o.args, { queryOptions: o });
 			}
 		};
 
-		let onHoverOffFn = (hex) => {
-			if (hex.creature instanceof Creature) {
+		const onHoverOffFn = (hex: Hex) => {
+			const { creature } = hex;
+
+			if (creature instanceof Creature) {
 				// toggle hover off event
-				let creature = hex.creature;
 				if (creature.isDarkPriest()) {
 					// the plasma would have been displayed so now display the health again
 					creature.updateHealth();
@@ -685,9 +894,9 @@ export class HexGrid {
 		};
 
 		// ONMOUSEOVER
-		let onSelectFn = (hex) => {
-			let y = hex.y,
-				x = hex.x;
+		const onSelectFn = (hex: Hex) => {
+			let { x } = hex;
+			const { y } = hex;
 
 			// Xray
 			this.xray(hex);
@@ -708,8 +917,8 @@ export class HexGrid {
 				}
 
 				// Offset Pos
-				let offset = o.flipped ? o.size - 1 : 0,
-					mult = o.flipped ? 1 : -1; // For flipped player
+				const offset = o.flipped ? o.size - 1 : 0;
+				const mult = o.flipped ? 1 : -1; // For flipped player
 
 				for (let i = 0, size = o.size; i < size; i++) {
 					// Try next hexagons to see if they fit
@@ -726,8 +935,8 @@ export class HexGrid {
 				hex = this.hexes[y][x]; // New coords
 				o.fnOnSelect(hex, o.args);
 			} else if (!hex.reachable) {
-				if (hex.materialize_overlay) {
-					hex.materialize_overlay.alpha = 0;
+				if (this.materialize_overlay) {
+					this.materialize_overlay.alpha = 0;
 				}
 				hex.overlayVisualState('hover');
 
@@ -736,9 +945,9 @@ export class HexGrid {
 		};
 
 		// ONRIGHTCLICK
-		let onRightClickFn = (hex) => {
+		const onRightClickFn = (hex: Hex) => {
 			if (hex.creature instanceof Creature) {
-				game.UI.showCreature(hex.creature.type, hex.creature.player.id, '', true, '');
+				game.UI.showCreature(hex.creature.type, hex.creature.player.id, 'grid');
 			} else {
 				if (game.activeCreature.isDarkPriest()) {
 					// If ability used, default to Dark Priest and say materialize has been used
@@ -746,33 +955,21 @@ export class HexGrid {
 						game.UI.showCreature(
 							game.activeCreature.type,
 							game.activeCreature.player.id,
-							'',
 							'emptyHex',
 						);
-					} else if (game.UI.lastViewedCreature !== '') {
-						game.UI.showCreature(
-							game.UI.lastViewedCreature,
-							game.UI.selectedPlayer,
-							'',
-							'emptyHex',
-						);
-					} else if (game.UI.selectedCreatureObj !== '') {
+					} else if (game.UI.lastViewedCreature) {
+						game.UI.showCreature(game.UI.lastViewedCreature, game.UI.selectedPlayer, 'emptyHex');
+					} else if (game.UI.selectedCreatureObj) {
 						game.UI.toggleDash(true);
 					} else {
 						game.UI.showCreature(
 							game.activeCreature.type,
 							game.activeCreature.player.id,
-							'',
 							'emptyHex',
 						);
 					}
 				} else {
-					game.UI.showCreature(
-						game.activeCreature.type,
-						game.activeCreature.player.id,
-						'',
-						'emptyHex',
-					);
+					game.UI.showCreature(game.activeCreature.type, game.activeCreature.player.id, 'emptyHex');
 				}
 			}
 		};
@@ -787,12 +984,12 @@ export class HexGrid {
 
 	/* xray(hex)
 	 *
-	 * hex : 	Hex : 	Hexagon to emphase
+	 * hex : 	Hex : 	Hexagon to emphasize.
 	 *
 	 * If hex contain creature call ghostOverlap for each creature hexes
 	 *
 	 */
-	xray(hex) {
+	xray(hex: Hex) {
 		// Clear previous ghost
 		this.game.creatures.forEach((creature) => {
 			if (creature instanceof Creature) {
@@ -809,98 +1006,37 @@ export class HexGrid {
 		}
 	}
 
-	/* hideCreatureHexes()
-	 *
-	 * Ghosts hexes with creatures
-	 * TODO: This does nothing...
-	 */
-	hideCreatureHexes(except) {
-		this.game.creatures.forEach((creature) => {
-			if (creature instanceof Creature) {
-				let hide = true;
-				if (except instanceof Creature) {
-					if (except.id == creature.id) {
-						hide = false;
-					}
-				}
-
-				if (hide) {
-					// this.$display.addClass("ghosted_hidden");
-					// this.$health.addClass("ghosted_hidden");
-					for (let i = 0; i < creature.size; i++) {
-						if (creature.hexagons[i]) {
-							// this.hexagons[i].$display.hide();
-							// this.hexagons[i].$overlay.hide();
-						}
-					}
-				}
-			}
-		});
-	}
-
-	/* getHexLine(x, y, dir, flipped)
-	 *
-	 * Gets a line of hexes given a start point and a direction
-	 * The result is an array of hexes, starting from the start point's hex, and
-	 * extending out in a straight line.
+	/**
+	 * Gets a line of hexes given a start point and a direction The result is an array
+	 * of hexes, starting from the start point's hex, and extending out in a straight line.
 	 * If the coordinate is erroneous, returns an empty array.
 	 *
-	 * x, y: coordinate of start hex
-	 * dir: direction number (0 = upright, continues clockwise to 5 = upleft)
-	 * flipped
+	 * @param x Coordinate of start hex.
+	 * @param y Coordinate of start hex.
+	 * @param dir Direction of the line.
+	 * @param flipped Flip the direction.
+	 * @returns Hexes in the line.
 	 */
-	getHexLine(x, y, dir, flipped) {
+	getHexLine(x: number, y: number, dir: Direction, flipped): Hex[] {
 		switch (dir) {
-			case 0: // Upright
+			case Direction.UpRight:
 				return this.getHexMap(x, y - 8, 0, flipped, matrices.diagonalup).reverse();
-			case 1: // StraitForward
+			case Direction.Right:
 				return this.getHexMap(x, y, 0, flipped, matrices.straitrow);
-			case 2: // Downright
+			case Direction.DownRight:
 				return this.getHexMap(x, y, 0, flipped, matrices.diagonaldown);
-			case 3: // Downleft
+			case Direction.DownLeft:
 				return this.getHexMap(x, y, -4, flipped, matrices.diagonalup);
-			case 4: // StraitBackward
+			case Direction.Left:
 				return this.getHexMap(x, y, 0, !flipped, matrices.straitrow);
-			case 5: // Upleft
+			case Direction.UpLeft:
 				return this.getHexMap(x, y - 8, -4, flipped, matrices.diagonaldown).reverse();
 			default:
 				return [];
 		}
 	}
 
-	/* showCreaturehexes()
-	 *
-	 * Unghosts hexes with creatures
-	 * TODO: This also does nothing...
-	 */
-	showCreaturehexes() {
-		this.game.creatures.forEach((creature) => {
-			if (creature instanceof Creature) {
-				// this.display.overlayVisualState("ghosted_hidden");
-				// this.health.overlayVisualState("ghosted_hidden");
-				for (let i = 0; i < creature.size; i++) {
-					//if(this.hexagons[i]) {
-					//	this.hexagons[i].display.alpha = 1;
-					//	this.hexagons[i].overlay.alpha = 1;
-					//}
-				}
-			}
-		});
-	}
-
-	/* clearHexViewAlterations()
-	 *
-	 * Removes all hex view alterations like hideCreatureHexes used
-	 * Squashes bugs by making sure all view alterations are removed
-	 * on a change of ability/change of turn/etc
-	 * If you make a new hex view alteration call the function to remove
-	 * the alteration in here to ensure it gets cleared at the right time
-	 */
-	clearHexViewAlterations() {
-		this.showCreaturehexes();
-	}
-
-	cleanHex(hex) {
+	cleanHex(hex: Hex) {
 		hex.cleanDisplayVisualState();
 		hex.cleanOverlayVisualState();
 	}
@@ -912,12 +1048,13 @@ export class HexGrid {
 	updateDisplay() {
 		this.cleanDisplay();
 		this.cleanOverlay();
+
 		this.hexes.forEach((hex) => {
 			hex.forEach((item) => {
 				if (item.creature instanceof Creature) {
 					if (item.creature.id == this.game.activeCreature.id) {
-						item.overlayVisualState('active creature player' + item.creature.team);
-						item.displayVisualState('creature player' + item.creature.team);
+						item.overlayVisualState(`active creature player${item.creature.team}`);
+						item.displayVisualState(`creature player${item.creature.team}`);
 					}
 				}
 			});
@@ -977,7 +1114,7 @@ export class HexGrid {
 		search(this.hexes[y][x], new Hex(-2, -2, null, this.game), size, id, this.game.grid);
 
 		// Gather all the reachable hexes
-		let hexes = [];
+		const hexes: Hex[] = [];
 		this.forEachHex((hex) => {
 			// If not Too far or Impossible to reach
 			if (hex.g <= distance && hex.g != 0) {
@@ -1009,7 +1146,7 @@ export class HexGrid {
 
 	/* getHexMap(originx, originy, array)
 	 *
-	 * array : 	Array : 	2-dimentions Array containing 0 or 1 (boolean)
+	 * array : 	Array : 	2-dimensions Array containing 0 or 1 (boolean)
 	 * originx : 	Integer : 	Position of the array on the grid
 	 * originy : 	Integer : 	Position of the array on the grid
 	 * offsetx : 	Integer : 	offset flipped for flipped players
@@ -1019,7 +1156,7 @@ export class HexGrid {
 	 */
 	getHexMap(originx, originy, offsetx, flipped, array) {
 		// Heavy logic in here
-		let hexes = [];
+		const hexes = [];
 
 		array = array.slice(0); // Copy to not modify original
 		originx += flipped ? 1 - array[0].length - offsetx : -1 + offsetx;
@@ -1027,13 +1164,13 @@ export class HexGrid {
 		for (let y = 0, len = array.length; y < len; y++) {
 			array[y] = array[y].slice(0); // Copy row
 
-			// Translating to flipped patern
+			// Translating to flipped pattern
 			if (flipped && y % 2 != 0) {
 				// Odd rows
 				array[y].push(0);
 			}
 
-			// Translating even to odd row patern
+			// Translating even to odd row pattern
 			array[y].unshift(0);
 			if (originy % 2 != 0 && y % 2 != 0) {
 				// Even rows
@@ -1047,7 +1184,7 @@ export class HexGrid {
 			// Gathering hexes
 			for (let x = 0; x < array[y].length; x++) {
 				if (array[y][x]) {
-					let xfinal = flipped ? array[y].length - 1 - x : x; // Parse the array backward for flipped player
+					const xfinal = flipped ? array[y].length - 1 - x : x; // Parse the array backward for flipped player
 					if (this.hexExists(originy + y, originx + xfinal)) {
 						hexes.push(this.hexes[originy + y][originx + xfinal]);
 					}
@@ -1078,8 +1215,8 @@ export class HexGrid {
 
 	// TODO: Rewrite methods used here to only require the creature as an argument.
 	showMovementRange(id) {
-		let creature = this.game.creatures[id];
-		let hexes = this.findCreatureMovementHexes(creature);
+		const creature = this.game.creatures[id];
+		const hexes = this.findCreatureMovementHexes(creature);
 
 		// Block all hexes
 		this.forEachHex((hex) => {
@@ -1120,48 +1257,92 @@ export class HexGrid {
 	}
 
 	selectHexUp() {
-		if (this.hexExists(this.selectedHex.y - 1, this.selectedHex.x)) {
-			let hex = this.hexes[this.selectedHex.y - 1][this.selectedHex.x];
-			this.selectedHex = hex;
-			hex.onSelectFn();
+		if (!this.hexExists(this.selectedHex.y - 1, this.selectedHex.x)) {
+			return;
 		}
+
+		if (this.selectedHex) {
+			this.clearHexViewAlterations();
+			this.selectedHex.onHoverOffFn(this.selectedHex);
+		}
+
+		const hex = this.hexes[this.selectedHex.y - 1][this.selectedHex.x];
+		this.selectedHex = hex;
+		hex.onSelectFn(hex);
 	}
 
 	selectHexDown() {
-		if (this.hexExists(this.selectedHex.y + 1, this.selectedHex.x)) {
-			let hex = this.hexes[this.selectedHex.y + 1][this.selectedHex.x];
-			this.selectedHex = hex;
-			hex.onSelectFn();
+		if (!this.hexExists(this.selectedHex.y + 1, this.selectedHex.x)) {
+			return;
 		}
+
+		if (this.selectedHex) {
+			this.clearHexViewAlterations();
+			this.selectedHex.onHoverOffFn(this.selectedHex);
+		}
+
+		const hex = this.hexes[this.selectedHex.y + 1][this.selectedHex.x];
+		this.selectedHex = hex;
+		hex.onSelectFn(hex);
 	}
 
 	selectHexLeft() {
-		if (this.hexExists(this.selectedHex.y, this.selectedHex.x - 1)) {
-			let hex = this.hexes[this.selectedHex.y][this.selectedHex.x - 1];
-			this.selectedHex = hex;
-			hex.onSelectFn();
+		if (!this.hexExists(this.selectedHex.y, this.selectedHex.x - 1)) {
+			return;
 		}
+
+		if (this.selectedHex) {
+			this.clearHexViewAlterations();
+			this.selectedHex.onHoverOffFn(this.selectedHex);
+		}
+
+		const hex = this.hexes[this.selectedHex.y][this.selectedHex.x - 1];
+		this.selectedHex = hex;
+		hex.onSelectFn(hex);
 	}
 
 	selectHexRight() {
-		if (this.hexExists(this.selectedHex.y, this.selectedHex.x + 1)) {
-			let hex = this.hexes[this.selectedHex.y][this.selectedHex.x + 1];
-			this.selectedHex = hex;
-			hex.onSelectFn();
+		if (!this.hexExists(this.selectedHex.y, this.selectedHex.x + 1)) {
+			return;
 		}
+
+		if (this.selectedHex) {
+			this.clearHexViewAlterations();
+			this.selectedHex.onHoverOffFn(this.selectedHex);
+		}
+
+		const hex = this.hexes[this.selectedHex.y][this.selectedHex.x + 1];
+		this.selectedHex = hex;
+		hex.onSelectFn(hex);
 	}
 
-	confirmHex(hex) {
+	confirmHex() {
 		if (this.game.freezedInput) {
 			return;
 		}
 
-		this.selectedHex.onConfirmFn(hex);
+		this.selectedHex.onConfirmFn(this.selectedHex);
+	}
+
+	/**
+	 * Reset the visual state for hexes that might have been hovered, dashed, etc.
+	 * Note: I'm not entirely sure what this code is doing.
+	 */
+	clearHexViewAlterations() {
+		if (!this.selectedHex) {
+			return;
+		}
+
+		this.redoLastQuery();
+		// Clear Xray.
+		this.xray(new Hex(-1, -1, null, this.game));
+		// Clear Xray Queue.
+		this.game.UI.xrayQueue(-1);
 	}
 
 	orderCreatureZ() {
-		let index = 0,
-			creatures = this.game.creatures;
+		let index = 0;
+		const creatures = this.game.creatures;
 
 		for (let y = 0, leny = this.hexes.length; y < leny; y++) {
 			for (let i = 1, len = creatures.length; i < len; i++) {
@@ -1176,7 +1357,6 @@ export class HexGrid {
 				this.creatureGroup.addAt(this.materialize_overlay, index++);
 			}
 		}
-		// game.grid.creatureGroup.sort();
 	}
 
 	//******************//
@@ -1189,7 +1369,7 @@ export class HexGrid {
 	 *
 	 * Execute f for each hexes
 	 */
-	forEachHex(func) {
+	forEachHex(func: (hex: Hex) => void) {
 		this.hexes.forEach((hex) => {
 			hex.forEach(func);
 		});
@@ -1227,13 +1407,13 @@ export class HexGrid {
 	 *
 	 * Shorcut for $allDispHex.removeClass()
 	 */
-	cleanDisplay(cssClass) {
+	cleanDisplay(cssClass = '') {
 		this.forEachHex((hex) => {
 			hex.cleanDisplayVisualState(cssClass);
 		});
 	}
 
-	cleanOverlay(cssClass) {
+	cleanOverlay(cssClass = '') {
 		this.forEachHex((hex) => {
 			hex.cleanOverlayVisualState(cssClass);
 		});
@@ -1247,8 +1427,8 @@ export class HexGrid {
 	 * Draw a preview of the creature at the given coordinates
 	 */
 	previewCreature(pos, creatureData, player) {
-		let game = this.game,
-			hex = this.hexes[pos.y][pos.x - (creatureData.size - 1)];
+		const game = this.game;
+		const hex = this.hexes[pos.y][pos.x - (creatureData.size - 1)];
 
 		if (!this.materialize_overlay) {
 			// If sprite does not exists
@@ -1284,9 +1464,20 @@ export class HexGrid {
 		}
 
 		for (let i = 0, size = creatureData.size; i < size; i++) {
-			let hexInstance = this.hexes[pos.y][pos.x - i];
+			const hexInstance = this.hexes[pos.y][pos.x - i];
 			this.cleanHex(hexInstance);
 			hexInstance.overlayVisualState('creature selected player' + game.activeCreature.team);
 		}
+	}
+
+	/**
+	 * Internal debugging method to log and visually highlight (in blue) an array
+	 * of hexes.
+	 *
+	 * @param hexes Hexes to log and visually highlight.
+	 */
+	__debugHexes(hexes: Hex[]) {
+		console.debug({ hexes }, hexes.map((hex) => hex.coord).join(', '));
+		hexes.forEach((hex) => hex.displayVisualState('creature selected player1'));
 	}
 }
