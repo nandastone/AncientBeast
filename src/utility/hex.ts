@@ -4,7 +4,7 @@ import { Creature } from '../creature';
 import { HexGrid } from './hexgrid';
 import Game from '../game';
 import Phaser from 'phaser-ce';
-import { Drop } from '../drops';
+import { Drop } from '../drop';
 
 export enum Direction {
 	UpRight = 0,

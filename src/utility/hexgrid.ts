@@ -1154,12 +1154,12 @@ export class HexGrid {
 	 *
 	 * return : 	Array : 	Set of corresponding hexes
 	 */
-	getHexMap(originx, originy, offsetx, flipped, array) {
+	getHexMap(originX: number, originY: number, offsetX: number, flipped: boolean, array) {
 		// Heavy logic in here
 		const hexes = [];
 
 		array = array.slice(0); // Copy to not modify original
-		originx += flipped ? 1 - array[0].length - offsetx : -1 + offsetx;
+		originX += flipped ? 1 - array[0].length - offsetX : -1 + offsetX;
 
 		for (let y = 0, len = array.length; y < len; y++) {
 			array[y] = array[y].slice(0); // Copy row
@@ -1172,7 +1172,7 @@ export class HexGrid {
 
 			// Translating even to odd row pattern
 			array[y].unshift(0);
-			if (originy % 2 != 0 && y % 2 != 0) {
+			if (originY % 2 != 0 && y % 2 != 0) {
 				// Even rows
 				if (flipped) {
 					array[y].pop(); // Remove last element as the array will be parse backward
@@ -1185,8 +1185,8 @@ export class HexGrid {
 			for (let x = 0; x < array[y].length; x++) {
 				if (array[y][x]) {
 					const xfinal = flipped ? array[y].length - 1 - x : x; // Parse the array backward for flipped player
-					if (this.hexExists(originy + y, originx + xfinal)) {
-						hexes.push(this.hexes[originy + y][originx + xfinal]);
+					if (this.hexExists(originY + y, originX + xfinal)) {
+						hexes.push(this.hexes[originY + y][originX + xfinal]);
 					}
 				}
 			}
