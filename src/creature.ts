@@ -837,7 +837,7 @@ export class Creature {
 		faceTo: Hex | Creature,
 		faceFrom: Hex | Creature,
 		ignoreCreatureHex: boolean,
-		attackFix: boolean,
+		attackFix = false,
 	) {
 		if (!faceFrom) {
 			faceFrom = this.player.flipped ? this.hexagons[this.size - 1] : this.hexagons[0];
@@ -845,6 +845,8 @@ export class Creature {
 
 		if (
 			ignoreCreatureHex &&
+			faceTo instanceof Hex &&
+			faceFrom instanceof Hex &&
 			this.hexagons.indexOf(faceTo) != -1 &&
 			this.hexagons.indexOf(faceFrom) != -1
 		) {
@@ -868,12 +870,13 @@ export class Creature {
 		if (attackFix && this.size > 1) {
 			//only works on 2hex creature targeting the adjacent row
 			if (faceFrom.y % 2 === 0) {
-				if (faceTo.x - this.player.flipped == faceFrom.x) {
+				// TODO: Test.
+				if (faceTo.x - (this.player.flipped ? 1 : 0) == faceFrom.x) {
 					this.facePlayerDefault();
 					return;
 				}
 			} else {
-				if (faceTo.x + 1 - this.player.flipped == faceFrom.x) {
+				if (faceTo.x + 1 - (this.player.flipped ? 1 : 0) == faceFrom.x) {
 					this.facePlayerDefault();
 					return;
 				}
@@ -1114,8 +1117,8 @@ export class Creature {
 
 		// TODO Review this algo to allow distance
 		if (clockwise) {
-			const hexes = [],
-				c;
+			const hexes = [];
+			let c;
 			const o = this.y % 2 === 0 ? 1 : 0;
 
 			if (this.size == 1) {

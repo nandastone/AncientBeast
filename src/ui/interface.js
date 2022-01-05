@@ -821,7 +821,7 @@ export class UI {
 	 * @param {number} player Player ID
 	 * @param {'emptyHex' | 'portrait' | 'grid'} clickMethod Method used to view creatures.
 	 */
-	showCreature(creatureType, player, clickMethod) {
+	showCreature(creatureType, player, clickMethod = '') {
 		const game = this.game;
 
 		if (!this.dashopen) {

@@ -1,13 +1,42 @@
-import * as $j from 'jquery';
+import { Point } from 'phaser-ce';
 import { getUrl } from './assetLoader';
 import { Creature } from './creature';
+import Game from './game';
+import { Score } from './score';
+import { getGameConfig } from './script';
 
 /**
- * Player Class
- * Player object with attributes
+ * Player object with attributes.
  */
 export class Player {
-	constructor(id, game) {
+	id: number;
+	game: Game;
+	creatures: Creature[];
+	name: string;
+	color: string;
+	avatar: any;
+
+	/**
+	 * List of various scoring metrics that will form the player's total score. Many
+	 * scoring metrics can be added multiple times i.e. "picking up drop".
+	 */
+	score: Score[];
+
+	plasma: number;
+	flipped: boolean;
+	availableCreatures: any;
+	hasLost: boolean;
+	hasFled: boolean;
+	bonusTimePool: number;
+	totalTimePool: number;
+	startTime: Date;
+
+	/**
+	 * Whether creatures summoned by Player are affected by Materialization Sickness.
+	 */
+	_summonCreaturesWithMaterializationSickness: boolean;
+
+	constructor(id: number, game: Game) {
 		/* Attributes
 		 *
 		 * id :		Integer :	Id of the player 1, 2, 3 or 4
@@ -20,6 +49,7 @@ export class Player {
 		this.game = game;
 		this.creatures = [];
 		this.name = 'Player' + (id + 1);
+
 		switch (id) {
 			case 0:
 				this.color = 'red';
@@ -34,9 +64,10 @@ export class Player {
 				this.color = 'green';
 				break;
 		}
+
 		this.avatar = getUrl('units/avatars/Dark Priest ' + this.color);
 		this.score = [];
-		this.plasma = game.plasma_amount;
+		this.plasma = getGameConfig().plasma_amount;
 		this.flipped = Boolean(id % 2); // Convert odd/even to true/false
 		this.availableCreatures = game.availableCreatures;
 		this.hasLost = false;
@@ -51,21 +82,22 @@ export class Player {
 			},
 		];
 
-		/**
-		 * Whether creatures summoned by Player are affected by Materialization Sickness.
-		 */
 		this._summonCreaturesWithMaterializationSickness = true;
 
 		// Events
 		this.game.signals.metaPowers.add(this.handleMetaPowerEvent, this);
 	}
 
-	// TODO: Is this even right? it should be off by 1 based on this code...
+	/**
+	 * TODO: Is this even right? it should be off by 1 based on this code...
+	 *
+	 * @returns
+	 */
 	getNbrOfCreatures() {
-		let nbr = -1,
-			creatures = this.creatures,
-			count = creatures.length,
-			creature;
+		let nbr = -1;
+		const creatures = this.creatures;
+		const count = creatures.length;
+		let creature;
 
 		for (let i = 0; i < count; i++) {
 			creature = creatures[i];
@@ -78,73 +110,72 @@ export class Player {
 		return nbr;
 	}
 
-	/* summon(type, pos)
+	/**
 	 *
-	 * type :	String :	Creature type (ex: "0" for Dark Priest and "G2" for Swampler)
-	 * pos :	Object :	Position {x,y}
-	 *
+	 * @param type Creature type (ex: "0" for Dark Priest and "G2" for Swampler).
+	 * @param pos Position {x,y}.
 	 */
-	summon(type, pos) {
-		let game = this.game,
-			data = game.retrieveCreatureStats(type),
-			creature;
+	summon(type: string, pos: Point) {
+		const game = this.game;
+		let data = game.retrieveCreatureStats(type);
 
-		data = $j.extend(data, pos, {
+		// Create the full data for creature creation.
+		data = {
+			...data,
+			...pos,
 			team: this.id,
 			temp: false,
-		}); // Create the full data for creature creation
+		};
 
 		for (let i = game.creatureData.length - 1; i >= 0; i--) {
-			// Avoid Dark Priest shout at the begining of a match
+			// Avoid Dark Priest shout at the beginning of a match.
 			if (game.creatureData[i].type == type && i !== 0) {
 				game.soundsys.playSound(game.soundLoaded[1000 + i], game.soundsys.announcerGainNode);
 			}
 		}
 
-		creature = new Creature(data);
+		const creature = new Creature(data);
 		this.creatures.push(creature);
 		creature.summon(!this._summonCreaturesWithMaterializationSickness);
 		game.onCreatureSummon(creature);
 	}
 
-	/* flee()
+	/**
+	 * Ask if the player wants to flee the match.
 	 *
-	 * Ask if the player wants to flee the match
-	 *
+	 * @param o
 	 */
-	flee(o) {
+	flee(o: any) {
 		this.hasFled = true;
 		this.deactivate();
 		this.game.skipTurn(o);
 	}
 
-	/* getScore()
-	 *
-	 * return :	Integer :	The current score of the player
-	 *
+	/**
 	 * Return the total of the score events.
+	 *
+	 * @returns The current score of the player.
 	 */
 	getScore() {
-		let total = this.score.length,
-			s = {},
-			points,
-			totalScore = {
-				firstKill: 0,
-				kill: 0,
-				deny: 0,
-				humiliation: 0,
-				annihilation: 0,
-				timebonus: 0,
-				nofleeing: 0,
-				creaturebonus: 0,
-				darkpriestbonus: 0,
-				immortal: 0,
-				total: 0,
-				pickupDrop: 0,
-				upgrade: 0,
-			};
+		let s: Score;
+		let points = 0;
+		const totalScore = {
+			firstKill: 0,
+			kill: 0,
+			deny: 0,
+			humiliation: 0,
+			annihilation: 0,
+			timebonus: 0,
+			nofleeing: 0,
+			creaturebonus: 0,
+			darkpriestbonus: 0,
+			immortal: 0,
+			total: 0,
+			pickupDrop: 0,
+			upgrade: 0,
+		};
 
-		for (let i = 0; i < total; i++) {
+		for (let i = 0; i < this.score.length; i++) {
 			s = this.score[i];
 			points = 0;
 
@@ -200,35 +231,36 @@ export class Player {
 		return totalScore;
 	}
 
-	/* isLeader()
-	 *
+	/**
 	 * Test if the player has the greater score.
-	 * Return true if in lead. False if not.
-	 *
 	 * TODO: This is also wrong, because it allows for ties to result in a "leader".
+	 *
+	 * @returns Return true if in lead. False if not.
 	 */
 	isLeader() {
-		let game = this.game;
+		const game = this.game;
 
+		// Each player
 		for (let i = 0; i < game.playerMode; i++) {
-			// Each player
 			// If someone has a higher score
 			if (game.players[i].getScore().total > this.getScore().total) {
 				return false; // He's not in lead
 			}
 		}
 
-		return true; // If nobody has a better score he's in lead
+		// If nobody has a better score he's in lead.
+		return true;
 	}
 
-	/* isAnnihilated()
+	/**
+	 * A player is considered annihilated if all his creatures are dead DP included.
 	 *
-	 * A player is considered annihilated if all his creatures are dead DP included
+	 * @returns
 	 */
 	isAnnihilated() {
 		// annihilated is false if only one creature is not dead
-		let annihilated = this.creatures.length > 1,
-			count = this.creatures.length;
+		let annihilated = this.creatures.length > 1;
+		const count = this.creatures.length;
 
 		for (let i = 0; i < count; i++) {
 			annihilated = annihilated && this.creatures[i].dead;
@@ -237,14 +269,13 @@ export class Player {
 		return annihilated;
 	}
 
-	/* deactivate()
-	 *
-	 * Remove all player's creature from the queue
+	/**
+	 * Remove all player's creature from the queue.
 	 */
 	deactivate() {
-		let game = this.game,
-			count = game.creatures.length,
-			creature;
+		const game = this.game;
+		const count = game.creatures.length;
+		let creature;
 
 		this.hasLost = true;
 
@@ -275,7 +306,13 @@ export class Player {
 		return this._summonCreaturesWithMaterializationSickness;
 	}
 
-	handleMetaPowerEvent(message, payload) {
+	/**
+	 * Handle events on the "meta powers" channel.
+	 *
+	 * @param message Event name.
+	 * @param payload Event payload.
+	 */
+	private handleMetaPowerEvent(message: string, payload: any) {
 		if (message === 'toggleDisableMaterializationSickness') {
 			this._summonCreaturesWithMaterializationSickness = !payload;
 		}

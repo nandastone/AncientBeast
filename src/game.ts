@@ -958,7 +958,7 @@ export default class Game {
 	 *
 	 * End turn for the current unit
 	 */
-	skipTurn(o) {
+	skipTurn(o: any) {
 		// Removes temporary Creature from queue when Player skips turn
 		// while choosing materialize location for Creature
 		this.queue.removeTempCreature();
@@ -971,7 +971,9 @@ export default class Game {
 
 		o = $j.extend(
 			{
-				callback: function () {},
+				callback: function () {
+					// No-op default function.
+				},
 				noTooltip: false,
 				tooltip: 'Skipped',
 			},
@@ -1004,8 +1006,8 @@ export default class Game {
 
 		this.activeCreature.facePlayerDefault();
 
-		let skipTurn = new Date().getTime();
-		let p = this.activeCreature.player;
+		const skipTurn = new Date().getTime();
+		const p = this.activeCreature.player;
 		p.totalTimePool = p.totalTimePool - (skipTurn - p.startTime);
 		this.pauseTime = 0;
 		this.activeCreature.deactivate(false);

@@ -1,4 +1,4 @@
-import * as $j from 'jquery';
+import $j from 'jquery';
 import { Direction, Hex } from './hex';
 import { Creature } from '../creature';
 import { search } from './pathfinding';
@@ -103,7 +103,7 @@ export class HexGrid {
 	 */
 	lastClickedHex: Hex;
 
-	display: Phaser.Sprite;
+	display: Phaser.Group;
 	gridGroup: Phaser.Group;
 	trapGroup: Phaser.Group;
 	hexesGroup: Phaser.Group;
