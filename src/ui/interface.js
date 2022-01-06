@@ -2116,6 +2116,7 @@ export class UI {
 			// Temporary Creature vignette used while materializing disappears instantly when
 			// player materializes actual Creature
 			if (
+				game.queue.tempCreature &&
 				+$j(vignette).attr('creatureid') === game.queue.tempCreature.id &&
 				game.activeCreature.type === '--' &&
 				game.activeCreature.abilities[3].used
@@ -2216,7 +2217,10 @@ export class UI {
 				$j(vignette).children('div.stats').css({ top: height });
 
 				// Actual materialized Creature vignette should fade in
-				if (+$j(vignette).attr('creatureid') === game.queue.tempCreature.id + 1) {
+				if (
+					game.queue.tempCreature &&
+					+$j(vignette).attr('creatureid') === game.queue.tempCreature.id + 1
+				) {
 					$j(vignette)
 						.css({
 							'z-index': 0 - index,

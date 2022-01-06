@@ -10,6 +10,10 @@ import { HexGrid } from './hexgrid';
  * @returns Object found in the array. False if nothing.
  */
 export function findPos(arr: (Hex | Creature)[], obj: Hex | Creature) {
+	if (!obj.pos) {
+		return false;
+	}
+
 	for (let i = 0; i < arr.length; i++) {
 		if (arr[i].pos == obj.pos) {
 			return arr[i];
@@ -24,9 +28,13 @@ export function findPos(arr: (Hex | Creature)[], obj: Hex | Creature) {
  *
  * @param arr The array to look for obj in.
  * @param obj Anything with pos attribute. Could be Hex of Creature.
- * @returns
+ * @returns Was the object removed from the list?
  */
 export function removePos(arr: (Hex | Creature)[], obj: Hex | Creature) {
+	if (!obj.pos) {
+		return false;
+	}
+
 	for (let i = 0; i < arr.length; i++) {
 		if (arr[i].pos == obj.pos) {
 			arr.splice(i, 1);

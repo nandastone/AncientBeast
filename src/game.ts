@@ -210,6 +210,14 @@ export default class Game {
 	 */
 	private constructor(version: string) {
 		this.version = version || 'dev';
+	}
+
+	/**
+	 * Some child dependencies expect the Game singleton to be available during their
+	 * construction. This can cause a stack overflow if Game isn't constructed. Delay
+	 * dependency setup until after Game has been constructed to avoid this.
+	 */
+	private finishConstruction() {
 		this.abilities = [];
 		this.players = [];
 		this.creatures = [];
@@ -336,14 +344,24 @@ export default class Game {
 		this.signals = this.setupSignalChannels(signalChannels);
 	}
 
+	/**
+	 * Game is a singleton and must be created/access via this static method.
+	 *
+	 * @returns Game singleton instance.
+	 */
 	static getInstance(): Game {
 		if (!Game.instance) {
 			Game.instance = new Game('0.4');
+			Game.instance.finishConstruction();
 		}
 
 		return Game.instance;
 	}
 
+	/**
+	 *
+	 * @param data
+	 */
 	dataLoaded(data: any) {
 		const dpcolor = ['blue', 'orange', 'green', 'red'];
 
@@ -490,12 +508,18 @@ export default class Game {
 		this.dataLoaded(dataJson);
 	}
 
+	/**
+	 *
+	 */
 	startLoading() {
 		$j('#gameSetupContainer').hide();
 		$j('#loader').removeClass('hide');
 		$j('body').css('cursor', 'wait');
 	}
 
+	/**
+	 *
+	 */
 	loadFinish() {
 		const progress = this.Phaser.load.progress;
 		const progressWidth = `${progress}%`;
@@ -728,6 +752,10 @@ export default class Game {
 
 		this.matchInit();
 	}
+
+	/**
+	 *
+	 */
 	async matchInit() {
 		if (this.multiplayer) {
 			if (Object.keys(this.match).length === 0) {
@@ -1469,7 +1497,12 @@ export default class Game {
 		this.triggerEffect('onStartPhase', [creature, creature]);
 	}
 
-	onEndPhase(creature, callback?) {
+	/**
+	 *
+	 * @param creature
+	 * @param callback
+	 */
+	onEndPhase(creature: Creature, callback?) {
 		this.triggerDeleteEffect('onEndPhase', creature);
 		this.triggerAbility('onEndPhase', arguments);
 		this.triggerEffect('onEndPhase', [creature, creature]);

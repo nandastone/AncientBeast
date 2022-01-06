@@ -60,6 +60,10 @@ export class CreatureQueue {
 	 * @param creature
 	 */
 	remove(creature: Creature) {
+		if (!creature) {
+			return;
+		}
+
 		arrayUtils.removePos(this.queue, creature);
 		arrayUtils.removePos(this.nextQueue, creature);
 	}

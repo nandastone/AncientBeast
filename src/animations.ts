@@ -60,13 +60,11 @@ export class Animations {
 				.to(nextPos.displayPos, parseInt(speed, 10), Phaser.Easing.Linear.None)
 				.start();
 
-			// Ignore traps for hover creatures, unless this is the last hex
-			const enterHexOpts = $j.extend(
-				{
-					ignoreTraps: creature.movementType() !== 'normal' && hexId < path.length - 1,
-				},
-				opts,
-			);
+			// Ignore traps for hover creatures, unless this is the last hex.
+			const enterHexOpts = {
+				ignoreTraps: creature.movementType() !== 'normal' && hexId < path.length - 1,
+				...opts,
+			};
 
 			tween.onComplete.add(() => {
 				if (creature.dead) {
@@ -248,7 +246,9 @@ export class Animations {
 
 		creature.pickupDrop();
 
-		opts.callbackStepIn(hex);
+		if (opts.callbackStepIn) {
+			opts.callbackStepIn(hex);
+		}
 
 		game.grid.orderCreatureZ();
 	}
