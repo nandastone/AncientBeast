@@ -1,4 +1,4 @@
-import { CreatureAlterations } from './creature';
+import { Creature, CreatureAlterations } from './creature';
 import Game from './game';
 import { Hex } from './utility/hex';
 
@@ -33,7 +33,14 @@ export class Drop {
 	hex: Hex;
 	display: any;
 
-	constructor(name, alterations, x, y) {
+	/**
+	 *
+	 * @param name
+	 * @param alterations
+	 * @param x
+	 * @param y
+	 */
+	constructor(name: string, alterations: CreatureAlterations, x: number, y: number) {
 		this.name = name;
 		this.game = Game.getInstance();
 		this.id = this.game.dropId++;
@@ -68,8 +75,12 @@ export class Drop {
 			.start();
 	}
 
-	pickup(creature) {
-		let game = this.game;
+	/**
+	 *
+	 * @param creature
+	 */
+	pickup(creature: Creature) {
+		const game = this.game;
 
 		game.log('%CreatureName' + creature.id + '% picks up ' + this.name);
 		creature.hint(this.name, 'msg_effects');
@@ -79,19 +90,19 @@ export class Drop {
 
 		this.hex.drop = undefined;
 
-		if (this.alterations.health) {
+		if (this.alterations.health && typeof this.alterations.health === 'number') {
 			creature.heal(this.alterations.health, false, false);
 		}
 
-		if (this.alterations.energy) {
+		if (this.alterations.energy && typeof this.alterations.energy === 'number') {
 			creature.recharge(this.alterations.energy, false);
 		}
 
-		if (this.alterations.endurance) {
+		if (this.alterations.endurance && typeof this.alterations.endurance === 'number') {
 			creature.restoreEndurance(this.alterations.endurance, false);
 		}
 
-		if (this.alterations.movement) {
+		if (this.alterations.movement && typeof this.alterations.movement === 'number') {
 			creature.restoreMovement(this.alterations.movement, false);
 		}
 
@@ -107,7 +118,7 @@ export class Drop {
 			type: 'pickupDrop',
 		});
 
-		let tween = game.Phaser.add
+		const tween = game.Phaser.add
 			.tween(this.display)
 			.to(
 				{

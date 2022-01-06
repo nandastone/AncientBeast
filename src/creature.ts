@@ -132,7 +132,12 @@ export class Creature {
 	realm: any;
 	animation: any;
 	display: any;
-	drop: Drop;
+
+	/**
+	 * Drop configuration data, used to create a new Drop on death.
+	 */
+	drop: any;
+
 	_movementType: MovementType;
 
 	/**
@@ -158,7 +163,13 @@ export class Creature {
 	hasWait: boolean;
 	travelDist: number;
 	effects: Effect[];
+
+	/**
+	 * Collection of Drop instances that have been consumed by this creature. Applies
+	 * buff/debuff alterations in a similar way to `this.effects`.
+	 */
 	dropCollection: Drop[];
+
 	protectedFromFatigue: boolean;
 	turnsActive: number;
 	baseStats: CreatureStats;
@@ -919,7 +930,7 @@ export class Creature {
 	 * @param opts Optional args object.
 	 * @returns
 	 */
-	moveTo(hex: Hex, opts: MoveToOptions) {
+	moveTo(hex: Hex, opts: Partial<MoveToOptions>) {
 		const game = this.game;
 
 		const defaultOpt: MoveToOptions = {
@@ -1360,7 +1371,7 @@ export class Creature {
 	 * @param o Options.
 	 * @returns Contains damages dealt and if creature is killed or not.
 	 */
-	takeDamage(damage: Damage, o: TakeDamageOptions) {
+	takeDamage(damage: Damage, opts: Partial<TakeDamageOptions>) {
 		const game = this.game;
 
 		if (this.dead) {
@@ -1373,7 +1384,7 @@ export class Creature {
 			isFromTrap: false,
 		};
 
-		const options: TakeDamageOptions = { ...defaultOpt, ...o };
+		const options: TakeDamageOptions = { ...defaultOpt, ...opts };
 
 		// Determine if melee attack
 		damage.melee = false;
@@ -1422,7 +1433,7 @@ export class Creature {
 
 			// If Health is empty
 			if (this.health <= 0) {
-				this.die(damage.attacker);
+				this.die(damage.attacker.player);
 
 				return {
 					damages: dmg,
@@ -1480,7 +1491,7 @@ export class Creature {
 				if (!damage.noLog) {
 					game.log('%CreatureName' + this.id + '% has been disintegrated');
 				}
-				this.die(damage.attacker);
+				this.die(damage.attacker.player);
 			}
 
 			// Hint
@@ -1820,10 +1831,10 @@ export class Creature {
 	/**
 	 * kill animation. remove creature from queue and from hexes.
 	 *
-	 * @param killer Killer of this creature.
+	 * @param killer The player that killed the creature.
 	 * @returns
 	 */
-	die(killer: Creature) {
+	die(killer: Player) {
 		const game = this.game;
 
 		game.log(`%CreatureName${this.id}% is dead`);
@@ -1833,7 +1844,7 @@ export class Creature {
 		// Triggers
 		game.onCreatureDeath(this);
 
-		this.killer = killer.player;
+		this.killer = killer;
 		const isDeny = this.killer.flipped == this.player.flipped;
 
 		// Drop item

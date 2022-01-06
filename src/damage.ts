@@ -41,14 +41,14 @@ export class Damage {
 	 * @param effects Contains Effect object to apply to the target.
 	 * @param game Game object.
 	 */
-	constructor(attacker: Creature, damages: Damages, area: number, effects: Effect[], game: Game) {
-		this.game = game;
+	constructor(attacker: Creature, damages: Damages, area: number, effects: Effect[]) {
+		this.game = Game.getInstance();
 		this.attacker = attacker;
 		this.damages = damages;
 		this.status = '';
 		this.effects = effects;
 		this.area = area;
-		// Whether this is counter-damage
+		// Whether this is counter-damage.
 		this.counter = false;
 	}
 

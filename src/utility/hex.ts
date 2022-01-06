@@ -5,6 +5,8 @@ import { HexGrid } from './hexgrid';
 import Game from '../game';
 import Phaser from 'phaser-ce';
 import { Drop } from '../drop';
+import { Effect } from '../effect';
+import { Player } from '../player';
 
 export enum Direction {
 	UpRight = 0,
@@ -540,27 +542,21 @@ export class Hex {
 		this.overlay.alpha = targetAlpha ? 1 : 0;
 	}
 
-	/** Add a trap to a hex.
-	 * @param {string} type - name of sprite to use; see Phaser.load.image usage
-	 * @param {array} effects - effects to activate when trap triggered
-	 * @param {Object} owner - owner of trap
-	 * @param {Object} opt - optional arguments merged into the Trap object
+	/**
+	 * Add a trap to a hex.
 	 *
-	 * @returns {Trap} trap
-	 *
-	 * Examples:
-	 * - turnLifetime
-	 * - fullTurnLifetime
-	 * - ownerCreature
-	 * - destroyOnActivate
-	 * - typeOver
+	 * @param type Name of sprite to use; see Phaser.load.image usage.
+	 * @param effects Effects to activate when trap triggered.
+	 * @param owner Owner of trap.
+	 * @param opt Optional arguments merged into the Trap object.
+	 * @returns
 	 */
-	createTrap(type, effects, owner, opt) {
+	createTrap(type: string, effects: Effect[], owner: Player, opt: any) {
 		if (this.trap) {
 			this.destroyTrap();
 		}
 
-		this.trap = new Trap(this.x, this.y, type, effects, owner, opt, this.game);
+		this.trap = new Trap(this.x, this.y, type, effects, owner, opt);
 		return this.trap;
 	}
 

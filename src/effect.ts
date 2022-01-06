@@ -1,25 +1,7 @@
 import { Creature, CreatureAlterations } from './creature';
 import Game from './game';
 import { Hex } from './utility/hex';
-
-/**
- * Override default Effect properties on construction.
- */
-export type EffectOptions = Partial<
-	Pick<
-		Effect,
-		| 'trigger'
-		| 'requireFn'
-		| 'effectFn'
-		| 'alterations'
-		| 'turnLifetime'
-		| 'deleteTrigger'
-		| 'stackable'
-		| 'noLog'
-		| 'specialHint'
-		| 'deleteOnOwnerDeath'
-	>
->;
+import { EffectOptions } from '../types/options/effect-options';
 
 /**
  * Class representing temporary or permanent changes to a Creature. Changes could
@@ -72,15 +54,7 @@ export class Effect {
 	 * to determine when an Effect should be removed.
 	 */
 	creationTurn: number;
-
-	/**
-	 * @default false
-	 */
 	noLog: boolean;
-
-	/**
-	 *
-	 */
 	alterations: CreatureAlterations;
 
 	/**
@@ -106,36 +80,37 @@ export class Effect {
 	 * @default false
 	 */
 	stackable: boolean;
+	specialHint: string;
+	deleteOnOwnerDeath: boolean;
 
 	/**
 	 *
+	 * @param name Name of the effect.
+	 * @param owner Creature that casted the effect.
+	 * @param target The object that possess the effect.
+	 * @param options
 	 */
-	specialHint: string;
-
-	/**
-	 * @default false
-	 */
-	deleteOnOwnerDeath: boolean;
-
-	constructor(name: string, owner: Creature, target: Creature | Hex, options: EffectOptions = {}) {
+	constructor(name: string, owner: Creature, target: Creature | Hex, opts: EffectOptions = {}) {
 		this.game = Game.getInstance();
+		this.id = this.game.effectId++;
+
 		this.name = name;
 		this.owner = owner;
 		this.target = target;
-
-		this.id = this.game.effectId++;
-		this.creationTurn = this.game.turn;
 		this.trigger = '';
-		this.alterations = {};
-		this.turnLifetime = 0;
-		this.deleteTrigger = 'onStartOfRound';
-		this.stackable = true;
-		this.noLog = false;
-		this.specialHint = undefined;
-		this.deleteOnOwnerDeath = false;
+		this.creationTurn = this.game.turn;
 
+		const defaultOpts = {
+			alterations: {},
+			turnLifetime: 0,
+			deleteTrigger: 'onStartOfRound',
+			stackable: true,
+			noLog: false,
+			specialHint: undefined, // Special hint for log
+			deleteOnOwnerDeath: false,
+		};
 		// Combine default options, passed options, and assign as properties to the instance.
-		Object.assign(this, options);
+		Object.assign(this, defaultOpts, opts);
 
 		// Update the global list of Effects for iteration and triggering on game events.
 		this.game.effects.push(this);
@@ -145,7 +120,7 @@ export class Effect {
 	 *
 	 * @param args
 	 */
-	animation(...args) {
+	animation(...args: any) {
 		this.activate(args);
 	}
 
@@ -154,7 +129,7 @@ export class Effect {
 	 * @param arg
 	 * @returns
 	 */
-	activate(arg) {
+	activate(arg: any) {
 		if (!this.requireFn(arg)) {
 			return false;
 		}
@@ -163,7 +138,6 @@ export class Effect {
 			console.log('Effect ' + this.name + ' triggered');
 		}
 
-		// Transfer an Effect from another Creature or Hex.
 		if (arg instanceof Creature) {
 			arg.addEffect(this);
 		}
@@ -175,28 +149,22 @@ export class Effect {
 	 * Intended to be overridden during construction.
 	 *
 	 * @param arg
-	 * @returns {boolean}
+	 * @returns
 	 */
-	requireFn(arg: any) {
+	requireFn(...arg: any) {
 		return true;
 	}
 
 	/**
 	 * Intended to be overridden during construction.
-	 *
 	 * @param arg
 	 */
-	effectFn(arg: any) {
-		// No-op method.
+	effectFn(...arg: any) {
+		// No-op default method.
 	}
 
 	/**
 	 * Remove an effect from a Creature.
-	 *
-	 * Technically this code path could be called Hex effects applied via a Trap.
-	 * However, this doesn't happen because Trap effects don't have a lifetime, so
-	 * never end up being automatically deleted. Instead they are generally cleaned
-	 * up via `effectFn()` which is the Effect after being transferred to a Creature.
 	 */
 	deleteEffect() {
 		if (this.target instanceof Hex) {
@@ -204,12 +172,20 @@ export class Effect {
 			return;
 		}
 
-		let i = this.target.effects.indexOf(this);
+		const targetIdx = this.target.effects.indexOf(this);
+		if (this.target.effects[targetIdx]) {
+			this.target.effects.splice(targetIdx, 1);
+		} else {
+			console.warn('Failed to find effect on target.', this);
+		}
 
-		this.target.effects.splice(i, 1);
-		i = this.game.effects.indexOf(this);
-		this.game.effects.splice(i, 1);
+		const gameIdx = this.game.effects.indexOf(this);
+		if (this.game.effects[gameIdx]) {
+			this.game.effects.splice(gameIdx, 1);
+		} else {
+			console.warn('Failed to find effect on game.', this);
+		}
+
 		this.target.updateAlteration();
-		console.log('Effect ' + this.name + ' deleted');
 	}
 }

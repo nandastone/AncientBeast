@@ -7,6 +7,7 @@ import { Team, isTeam } from './team';
 import * as arrayUtils from './arrayUtils';
 import Game from '../game';
 import { Trap } from './trap';
+import { Player } from '../player';
 interface QueryOptions {
 	/**
 	 * Target team.
@@ -122,37 +123,37 @@ export class HexGrid {
 	 *
 	 * Create attributes and populate JS grid with Hex objects
 	 */
-	constructor(opts, game: Game) {
-		const defaultOpt = {
+	constructor(opts: any) {
+		const defaultOpts = {
 			nbrRow: 9,
 			nbrhexesPerRow: 16,
 			firstRowFull: false,
 		};
 
-		opts = { ...defaultOpt, ...opts };
+		opts = { ...defaultOpts, ...opts };
 
-		this.game = game;
+		this.game = Game.getInstance();
 		this.hexes = []; // Hex Array
 		this.traps = []; // Traps Array
 		this.allhexes = []; // All hexes
 		this.lastClickedHex = undefined;
 
-		this.display = game.Phaser.add.group(undefined, 'displayGroup');
+		this.display = this.game.Phaser.add.group(undefined, 'displayGroup');
 		this.display.x = 230;
 		this.display.y = 380;
 
-		this.gridGroup = game.Phaser.add.group(this.display, 'gridGroup');
+		this.gridGroup = this.game.Phaser.add.group(this.display, 'gridGroup');
 		this.gridGroup.scale.set(1, 0.75);
 
-		this.trapGroup = game.Phaser.add.group(this.gridGroup, 'trapGrp');
-		this.hexesGroup = game.Phaser.add.group(this.gridGroup, 'hexesGroup');
-		this.displayHexesGroup = game.Phaser.add.group(this.gridGroup, 'displayHexesGroup');
-		this.overlayHexesGroup = game.Phaser.add.group(this.gridGroup, 'overlayHexesGroup');
-		this.inputHexesGroup = game.Phaser.add.group(this.gridGroup, 'inputHexesGroup');
-		this.dropGroup = game.Phaser.add.group(this.display, 'dropGrp');
-		this.creatureGroup = game.Phaser.add.group(this.display, 'creaturesGrp');
+		this.trapGroup = this.game.Phaser.add.group(this.gridGroup, 'trapGrp');
+		this.hexesGroup = this.game.Phaser.add.group(this.gridGroup, 'hexesGroup');
+		this.displayHexesGroup = this.game.Phaser.add.group(this.gridGroup, 'displayHexesGroup');
+		this.overlayHexesGroup = this.game.Phaser.add.group(this.gridGroup, 'overlayHexesGroup');
+		this.inputHexesGroup = this.game.Phaser.add.group(this.gridGroup, 'inputHexesGroup');
+		this.dropGroup = this.game.Phaser.add.group(this.display, 'dropGrp');
+		this.creatureGroup = this.game.Phaser.add.group(this.display, 'creaturesGrp');
 		// Parts of traps displayed over creatures
-		this.trapOverGroup = game.Phaser.add.group(this.display, 'trapOverGrp');
+		this.trapOverGroup = this.game.Phaser.add.group(this.display, 'trapOverGrp');
 		this.trapOverGroup.scale.set(1, 0.75);
 
 		// Populate grid
@@ -241,11 +242,11 @@ export class HexGrid {
 	/**
 	 * Get an object that contains the choices and hexesDashed for a direction query.
 	 *
-	 * @param o Options.
+	 * @param opts Options.
 	 * @returns Altered options.
 	 */
-	getDirectionChoices(o: QueryOptions) {
-		const defaultOpt = {
+	getDirectionChoices(opts: QueryOptions) {
+		const defaultOpts = {
 			team: Team.Enemy,
 			requireCreature: true,
 			id: 0,
@@ -267,7 +268,7 @@ export class HexGrid {
 			optTest: () => true,
 		};
 
-		const options = { ...defaultOpt, ...o };
+		const options = { ...defaultOpts, ...opts };
 
 		// Clean Direction
 		this.forEachHex((hex) => {
@@ -824,11 +825,8 @@ export class HexGrid {
 
 			if (this._executionMode && hex.creature instanceof Creature) {
 				hex.creature.die(
-					/* Target creature was killed by this fake "creature". This works because
-					the death logic doesn't actually care about the killing creature, just
-					that creature's player. The first player is always responsible for executing
-					creatures. */
-					{ player: game.players[0] },
+					// The first player is always responsible for executing creatures.
+					game.players[0],
 				);
 				return;
 			}

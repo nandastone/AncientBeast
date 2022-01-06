@@ -1,4 +1,3 @@
-import { Point } from 'phaser-ce';
 import { getUrl } from './assetLoader';
 import { Creature } from './creature';
 import Game from './game';
@@ -9,8 +8,16 @@ import { getGameConfig } from './script';
  * Player object with attributes.
  */
 export class Player {
+	/**
+	 * Id of the player 1, 2, 3 or 4.
+	 */
 	id: number;
+
 	game: Game;
+
+	/**
+	 * Array containing players creatures.
+	 */
 	creatures: Creature[];
 	name: string;
 	color: string;
@@ -22,7 +29,14 @@ export class Player {
 	 */
 	score: Score[];
 
+	/**
+	 * Plasma amount for the player.
+	 */
 	plasma: number;
+
+	/**
+	 * Player side of the battlefield (affects displayed creature)
+	 */
 	flipped: boolean;
 	availableCreatures: any;
 	hasLost: boolean;
@@ -36,17 +50,13 @@ export class Player {
 	 */
 	_summonCreaturesWithMaterializationSickness: boolean;
 
-	constructor(id: number, game: Game) {
-		/* Attributes
-		 *
-		 * id :		Integer :	Id of the player 1, 2, 3 or 4
-		 * creature :	Array :		Array containing players creatures
-		 * plasma :	Integer :	Plasma amount for the player
-		 * flipped :	Boolean :	Player side of the battlefield (affects displayed creature)
-		 *
-		 */
+	/**
+	 *
+	 * @param id
+	 */
+	constructor(id: number) {
 		this.id = id;
-		this.game = game;
+		this.game = Game.getInstance();
 		this.creatures = [];
 		this.name = 'Player' + (id + 1);
 
@@ -69,11 +79,11 @@ export class Player {
 		this.score = [];
 		this.plasma = getGameConfig().plasma_amount;
 		this.flipped = Boolean(id % 2); // Convert odd/even to true/false
-		this.availableCreatures = game.availableCreatures;
+		this.availableCreatures = this.game.availableCreatures;
 		this.hasLost = false;
 		this.hasFled = false;
 		this.bonusTimePool = 0;
-		this.totalTimePool = game.timePool * 1000;
+		this.totalTimePool = this.game.timePool * 1000;
 		this.startTime = new Date();
 
 		this.score = [
@@ -97,7 +107,7 @@ export class Player {
 		let nbr = -1;
 		const creatures = this.creatures;
 		const count = creatures.length;
-		let creature;
+		let creature: Creature;
 
 		for (let i = 0; i < count; i++) {
 			creature = creatures[i];
@@ -115,7 +125,7 @@ export class Player {
 	 * @param type Creature type (ex: "0" for Dark Priest and "G2" for Swampler).
 	 * @param pos Position {x,y}.
 	 */
-	summon(type: string, pos: Point) {
+	summon(type: string, pos: { x: number; y: number }) {
 		const game = this.game;
 		let data = game.retrieveCreatureStats(type);
 
@@ -275,7 +285,7 @@ export class Player {
 	deactivate() {
 		const game = this.game;
 		const count = game.creatures.length;
-		let creature;
+		let creature: Creature;
 
 		this.hasLost = true;
 
