@@ -1695,8 +1695,8 @@ export class Creature {
 							tooltipTransition,
 						)
 						.start();
-					grpHintElem.data.tweenAlpha.onComplete.add((targetObject, tween) => {
-						tween.destroy();
+					grpHintElem.data.tweenAlpha.onComplete.add((targetObject, tween: Phaser.Tween) => {
+						this.game.Phaser.tweens.remove(tween);
 					}, grpHintElem);
 				}
 			},
@@ -1745,8 +1745,8 @@ export class Creature {
 					tooltipTransition,
 				)
 				.start();
-			hint.data.tweenAlpha.onComplete.add((targetObject, tween) => {
-				tween.destroy();
+			hint.data.tweenAlpha.onComplete.add((targetObject, tween: Phaser.Tween) => {
+				this.game.Phaser.tweens.remove(tween);
 			}, hint);
 		}
 
