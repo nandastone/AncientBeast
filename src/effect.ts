@@ -121,6 +121,7 @@ export class Effect {
 	 * @param args
 	 */
 	animation(...args: any) {
+		console.log({ args });
 		this.activate(args);
 	}
 

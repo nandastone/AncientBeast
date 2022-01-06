@@ -3,7 +3,7 @@ import 'p2';
 import Phaser, { Signal } from 'phaser-ce';
 import $j from 'jquery';
 import { Animations } from './animations';
-import { CreatureQueue } from './creature_queue';
+import { CreatureQueue } from './creatureQueue';
 import { GameLog } from './utility/gamelog';
 import { SoundSys } from './sound/soundsys';
 import { MusicPlayer } from './sound/musicplayer';
@@ -218,8 +218,8 @@ export default class Game {
 		this.matchid = undefined;
 		this.playersReady = false;
 		this.preventSetup = false;
-		this.animations = new Animations(this);
-		this.queue = new CreatureQueue(this);
+		this.animations = new Animations();
+		this.queue = new CreatureQueue();
 		this.creatureIdCounter = 1;
 		this.creatureData = [];
 		this.pause = false;
@@ -1061,7 +1061,7 @@ export default class Game {
 		this.nextCreature();
 
 		// Reset temporary Creature
-		this.queue.tempCreature = {};
+		this.queue.tempCreature = undefined;
 	}
 
 	/**
@@ -1414,7 +1414,7 @@ export default class Game {
 	 * @param hex
 	 * @param callback
 	 */
-	onStepOut(creature: Creature, hex: Hex, callback) {
+	onStepOut(creature: Creature, hex: Hex, callback?) {
 		this.triggerAbility('onStepOut', arguments);
 		this.triggerEffect('onStepOut', arguments);
 		// Check traps last; this is because traps add effects triggered by
@@ -1809,8 +1809,8 @@ export default class Game {
 		this.matchid = null;
 		this.playersReady = false;
 		this.preventSetup = false;
-		this.animations = new Animations(this);
-		this.queue = new CreatureQueue(this);
+		this.animations = new Animations();
+		this.queue = new CreatureQueue();
 		this.creatureIdCounter = 1;
 		this.creatureData = [];
 		this.pause = false;

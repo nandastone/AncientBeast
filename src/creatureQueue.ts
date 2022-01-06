@@ -1,22 +1,32 @@
+import { Creature } from './creature';
+import Game from './game';
 import * as arrayUtils from './utility/arrayUtils';
 
 export class CreatureQueue {
-	constructor(game) {
-		this.game = game;
+	game: Game;
+	queue: any[];
+	nextQueue: any[];
+	tempCreature: Creature;
+
+	/**
+	 *
+	 */
+	constructor() {
+		this.game = Game.getInstance();
 		this.queue = [];
 		this.nextQueue = [];
-		this.tempCreature = {};
+		this.tempCreature = undefined;
 	}
 
 	/**
 	 * Add a creature to the next turn's queue by initiative, and optionally the current
 	 * turn's queue.
 	 *
-	 * @param {Creature} creature The creature to add.
-	 * @param {boolean} alsoAddToCurrentQueue Also add the creature to the current
-	 * turn's queue. Doing so lets a creature act in the same turn it was summoned.
+	 * @param creature The creature to add.
+	 * @param alsoAddToCurrentQueue Also add the creature to the current turn's queue.
+	 * 	Doing so lets a creature act in the same turn it was summoned.
 	 */
-	addByInitiative(creature, alsoAddToCurrentQueue = true) {
+	addByInitiative(creature: Creature, alsoAddToCurrentQueue = true) {
 		const queues = [this.nextQueue];
 
 		if (alsoAddToCurrentQueue) {
@@ -25,7 +35,7 @@ export class CreatureQueue {
 
 		queues.forEach((queue) => {
 			for (let i = 0; i < queue.length; i++) {
-				let queueItem = queue[i];
+				const queueItem = queue[i];
 
 				if (queueItem.delayed || queueItem.getInitiative() < creature.getInitiative()) {
 					queue.splice(i, 0, creature);
@@ -37,20 +47,33 @@ export class CreatureQueue {
 		});
 	}
 
+	/**
+	 *
+	 * @returns
+	 */
 	dequeue() {
 		return this.queue.splice(0, 1)[0];
 	}
 
-	remove(creature) {
+	/**
+	 *
+	 * @param creature
+	 */
+	remove(creature: Creature) {
 		arrayUtils.removePos(this.queue, creature);
 		arrayUtils.removePos(this.nextQueue, creature);
 	}
 
-	// Removes temporary Creature from queue
+	/**
+	 * Removes temporary Creature from queue.
+	 */
 	removeTempCreature() {
 		this.remove(this.tempCreature);
 	}
 
+	/**
+	 *
+	 */
 	nextRound() {
 		// Copy next queue into current queue
 		this.queue = this.nextQueue.slice(0);
@@ -58,20 +81,33 @@ export class CreatureQueue {
 		this.nextQueue = this.nextQueue.sort((a, b) => b.getInitiative() - a.getInitiative());
 	}
 
+	/**
+	 *
+	 * @returns
+	 */
 	isCurrentEmpty() {
 		return this.queue.length === 0;
 	}
 
+	/**
+	 *
+	 * @returns
+	 */
 	isNextEmpty() {
 		return this.nextQueue.length === 0;
 	}
 
-	delay(creature) {
-		// Find out if the creature is in the current queue or next queue; remove
-		// it from the queue and replace it at the end
-		let game = this.game,
-			inQueue = arrayUtils.removePos(this.queue, creature) || creature === game.activeCreature,
-			queue = this.queue;
+	/**
+	 *
+	 * @param creature
+	 * @returns
+	 */
+	delay(creature: Creature) {
+		/* Find out if the creature is in the current queue or next queue; remove it
+		from the queue and replace it at the end. */
+		const game = this.game;
+		const inQueue = arrayUtils.removePos(this.queue, creature) || creature === game.activeCreature;
+		let queue = this.queue;
 
 		if (!inQueue) {
 			queue = this.nextQueue;

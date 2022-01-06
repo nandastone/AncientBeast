@@ -839,7 +839,7 @@ export class Creature {
 	faceHex(
 		faceTo: Hex | Creature,
 		faceFrom: Hex | Creature,
-		ignoreCreatureHex: boolean,
+		ignoreCreatureHex = false,
 		attackFix = false,
 	) {
 		if (!faceFrom) {
